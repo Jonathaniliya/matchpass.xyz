@@ -1,0 +1,7 @@
+{
+  "enabledMcpjsonServers": [
+    "circle",
+    "arc-docs",
+    "supabase"
+  ]
+}
