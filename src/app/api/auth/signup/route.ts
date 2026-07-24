@@ -33,6 +33,16 @@ export async function POST(req: Request) {
     );
   }
 
+  // With email confirmation enabled, signUp returns a User but no verified
+  // session. Do not bind an existing guest identity until Auth has confirmed
+  // the email and the user signs in.
+  if (!data.session) {
+    return NextResponse.json(
+      { fanId: null, needsConfirmation: true },
+      { status: 201 },
+    );
+  }
+
   // Link to any pre-existing Fan with this email (guest checkout buyer claiming their account).
   const existing = await prisma.fan.findUnique({ where: { email } });
   const fan = existing
@@ -53,5 +63,5 @@ export async function POST(req: Request) {
         },
       });
 
-  return NextResponse.json({ fanId: fan.id, needsConfirmation: !data.session }, { status: 201 });
+  return NextResponse.json({ fanId: fan.id, needsConfirmation: false }, { status: 201 });
 }

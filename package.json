@@ -17,16 +17,16 @@
     "email:test": "tsx --env-file=.env.local scripts/test-email.ts"
   },
   "dependencies": {
-    "@circle-fin/developer-controlled-wallets": "^10.3.1",
-    "@circle-fin/user-controlled-wallets": "^10.3.1",
+    "@circle-fin/developer-controlled-wallets": "^10.8.0",
+    "@circle-fin/user-controlled-wallets": "^10.8.0",
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "^7.9.0",
+    "@prisma/client": "^7.9.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
     "@types/qrcode": "^1.5.6",
     "dotenv": "^17.4.2",
-    "next": "16.2.6",
+    "next": "16.2.11",
     "pg": "^8.21.0",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
@@ -42,11 +42,22 @@
     "@types/react-dom": "^19",
     "decimal.js": "^10.6.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
-    "prisma": "^7.8.0",
+    "eslint-config-next": "16.2.11",
+    "prisma": "^7.9.0",
     "supabase": "^2.101.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5"
+  },
+  "overrides": {
+    "axios": "1.18.1",
+    "fast-uri": "3.1.4",
+    "find-my-way": "9.7.0",
+    "form-data": "4.0.6",
+    "hono": "4.12.31",
+    "postcss": "8.5.15",
+    "protobufjs": "7.6.5",
+    "undici": "6.27.0",
+    "websocket-driver": "0.7.5"
   }
 }

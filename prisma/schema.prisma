@@ -91,8 +91,8 @@ model Club {
 model ClubCircleAccount {
   id           String   @id @default(cuid())
   clubId       String   @unique
-  walletSetId  String
-  walletId     String
+  walletSetId  String   @unique
+  walletId     String   @unique
   chain        String   @default("ARC-TESTNET")
   createdAt    DateTime @default(now())
   club         Club     @relation(fields: [clubId], references: [id], onDelete: Restrict)
@@ -150,7 +150,7 @@ model FanCircleWallet {
   id        String   @id @default(cuid())
   fanId     String   @unique
   userId    String
-  walletId  String
+  walletId  String   @unique
   address   String
   chain     String   @default("ARC-TESTNET")
   createdAt DateTime @default(now())

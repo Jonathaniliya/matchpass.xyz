@@ -26,7 +26,12 @@ export default function LoginPage() {
         setError(json.error ?? "Login failed");
         return;
       }
-      router.push("/");
+      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      const safeNext =
+        requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+          ? requestedNext
+          : "/";
+      router.push(safeNext);
       router.refresh();
     } catch {
       setError("Network error");

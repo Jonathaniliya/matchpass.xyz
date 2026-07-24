@@ -18,7 +18,7 @@ export function HeaderAccount({ fan }: Props) {
   const [showBalance, setShowBalance] = useState(true);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [balances, setBalances] = useState<Balance[]>([]);
-  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [loadingBalance, setLoadingBalance] = useState(true);
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,7 +38,6 @@ export function HeaderAccount({ fan }: Props) {
 
   // Fetch balance on mount
   useEffect(() => {
-    setLoadingBalance(true);
     fetch("/api/wallet/balance")
       .then((r) => r.json())
       .then((d) => {

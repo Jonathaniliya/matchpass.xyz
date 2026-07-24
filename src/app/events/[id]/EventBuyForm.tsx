@@ -73,7 +73,9 @@ export function EventBuyForm({
       if (!res.ok) {
         console.error("order_create_failed", res.status, json);
         setError(
-          typeof json?.error === "string"
+          json?.error === "identity_verification_required"
+            ? "That email already belongs to a fan. Log in, or use a ticket link from your email to verify access."
+            : typeof json?.error === "string"
             ? `${json.error} (${res.status})`
             : `Request failed (${res.status})`,
         );

@@ -3,6 +3,7 @@ import {
   setGuestFanCookie,
   verifyAccessToken,
 } from "@/lib/server/auth/guestSession";
+import { getCurrentFan } from "@/lib/server/auth/requireFan";
 import { prisma } from "@/lib/server/db/prisma";
 
 export const runtime = "nodejs";
@@ -30,11 +31,23 @@ export async function GET(
   // Verify the fan actually owns this order before granting cookie access.
   const order = await prisma.order.findUnique({
     where: { id },
-    select: { fanId: true },
+    select: { fanId: true, fan: { select: { supabaseUserId: true } } },
   });
   if (!order || order.fanId !== fanId) {
     return NextResponse.redirect(
       new URL(`/orders/${id}?error=invalid_link`, url.origin),
+    );
+  }
+
+  if (order.fan.supabaseUserId) {
+    const currentFan = await getCurrentFan();
+    if (currentFan?.id === fanId) {
+      return NextResponse.redirect(new URL(`/orders/${id}/tickets`, url.origin));
+    }
+
+    const returnTo = `${url.pathname}${url.search}`;
+    return NextResponse.redirect(
+      new URL(`/login?next=${encodeURIComponent(returnTo)}`, url.origin),
     );
   }
 

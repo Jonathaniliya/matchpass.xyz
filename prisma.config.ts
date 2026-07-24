@@ -10,6 +10,8 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Prisma CLI operations need a session-capable connection. Runtime queries
+    // continue to use the transaction pooler via src/lib/server/db/prisma.ts.
+    url: env("DIRECT_URL"),
   },
 });
