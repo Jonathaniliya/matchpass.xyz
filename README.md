@@ -87,10 +87,33 @@ Create `.env.local`:
 DATABASE_URL=
 CIRCLE_API_KEY=
 CIRCLE_WEBHOOK_SECRET=
-NEXT_PUBLIC_APP_URL=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 Add more once Circle wallet/account configuration is finalized.
+
+For password recovery, add the callback URL for every environment under
+Supabase **Authentication → URL Configuration → Redirect URLs**:
+
+```txt
+http://localhost:3000/auth/confirm
+https://your-production-domain.example/auth/confirm
+```
+
+If testing through ngrok, add the current ngrok callback URL as well. Set
+`NEXT_PUBLIC_APP_URL` to the canonical origin for the environment; when it is
+unset locally, the reset endpoint falls back to the request origin.
+
+For Google and Apple sign-in:
+
+1. Enable each provider under Supabase **Authentication → Providers**.
+2. Add `http://localhost:3000/auth/callback` and each deployed app callback to
+   Supabase **Authentication → URL Configuration → Redirect URLs**.
+3. In Google or Apple, use Supabase's provider callback URL:
+   `https://<project-ref>.supabase.co/auth/v1/callback`.
+
+Apple web OAuth additionally requires an Apple Services ID, Team ID, signing
+key, and a client secret that must be renewed before it expires.
 
 ## Suggested Folder Structure
 

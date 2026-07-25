@@ -59,5 +59,10 @@
     "protobufjs": "7.6.5",
     "undici": "6.27.0",
     "websocket-driver": "0.7.5"
+  },
+  "overrides": {
+    "@circle-fin/w3s-pw-web-sdk": {
+      "uuid": "11.1.1"
+    }
   }
 }

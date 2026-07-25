@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 import { SignupForm } from "./SignupForm";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default function SignupPage() {
           your profile.
         </p>
 
+        <SocialAuthButtons intent="signup" />
         <SignupForm />
 
         <p className="mt-6 text-center text-sm text-zinc-400">

@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,7 +50,9 @@ export default function LoginPage() {
         </h1>
         <p className="mt-2 text-sm text-zinc-400">Welcome back.</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <SocialAuthButtons intent="login" />
+
+        <form onSubmit={onSubmit} className="mt-2 space-y-4">
           <label className="block">
             <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">
               Email
@@ -63,17 +67,35 @@ export default function LoginPage() {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Password
+            <span className="mb-1 flex items-center justify-between gap-3">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                Password
+              </span>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-cyan-400 hover:text-cyan-300"
+              >
+                Forgot password?
+              </Link>
             </span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              className="w-full rounded-xl border border-border bg-surface-elev px-4 py-3 text-foreground outline-none focus:border-cyan-500"
-            />
+            <span className="relative block">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                className="w-full rounded-xl border border-border bg-surface-elev px-4 py-3 pr-16 text-foreground outline-none focus:border-cyan-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="absolute inset-y-0 right-0 px-4 text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </span>
           </label>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button

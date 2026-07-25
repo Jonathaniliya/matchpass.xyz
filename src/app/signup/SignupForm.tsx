@@ -8,6 +8,8 @@ export function SignupForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -16,6 +18,10 @@ export function SignupForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (password !== passwordConfirmation) {
+      setError("Passwords do not match.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/auth/signup", {
@@ -58,7 +64,7 @@ export function SignupForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4">
+    <form onSubmit={onSubmit} className="mt-2 space-y-4">
       <Field
         label="Email"
         type="email"
@@ -74,14 +80,19 @@ export function SignupForm() {
         value={displayName}
         onChange={setDisplayName}
       />
-      <Field
+      <PasswordField
         label="Password"
-        type="password"
-        autoComplete="new-password"
         value={password}
         onChange={setPassword}
-        required
-        minLength={8}
+        visible={showPasswords}
+        onToggleVisibility={() => setShowPasswords((visible) => !visible)}
+      />
+      <PasswordField
+        label="Repeat password"
+        value={passwordConfirmation}
+        onChange={setPasswordConfirmation}
+        visible={showPasswords}
+        onToggleVisibility={() => setShowPasswords((visible) => !visible)}
       />
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button
@@ -92,6 +103,48 @@ export function SignupForm() {
         {submitting ? "Creating account…" : "Sign up"}
       </button>
     </form>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggleVisibility,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  visible: boolean;
+  onToggleVisibility: () => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">
+        {label}
+      </span>
+      <span className="relative block">
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete="new-password"
+          required
+          minLength={8}
+          maxLength={128}
+          className="w-full rounded-xl border border-border bg-surface-elev px-4 py-3 pr-16 text-foreground outline-none focus:border-cyan-500"
+        />
+        <button
+          type="button"
+          onClick={onToggleVisibility}
+          className="absolute inset-y-0 right-0 px-4 text-xs font-medium text-zinc-400 hover:text-zinc-200"
+          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+        >
+          {visible ? "Hide" : "Show"}
+        </button>
+      </span>
+    </label>
   );
 }
 
