@@ -3,19 +3,17 @@
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/client/supabaseBrowser";
 
-type Provider = "google" | "apple";
-
 function safeLocalPath(value: string | null, fallback: string) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : fallback;
 }
 
 export function SocialAuthButtons({ intent }: { intent: "login" | "signup" }) {
-  const [activeProvider, setActiveProvider] = useState<Provider | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function continueWith(provider: Provider) {
+  async function continueWithGoogle() {
     setError(null);
-    setActiveProvider(provider);
+    setIsLoading(true);
 
     const requestedNext = new URLSearchParams(window.location.search).get("next");
     const next =
@@ -27,19 +25,17 @@ export function SocialAuthButtons({ intent }: { intent: "login" | "signup" }) {
 
     const supabase = createSupabaseBrowserClient();
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
+      provider: "google",
       options: {
         redirectTo: callback.toString(),
         skipBrowserRedirect: true,
-        ...(provider === "google"
-          ? { queryParams: { prompt: "select_account" } }
-          : {}),
+        queryParams: { prompt: "select_account" },
       },
     });
 
     if (oauthError || !data.url) {
-      setError(oauthError?.message ?? `${provider} sign-in is unavailable.`);
-      setActiveProvider(null);
+      setError(oauthError?.message ?? "Google sign-in is unavailable.");
+      setIsLoading(false);
       return;
     }
 
@@ -49,18 +45,10 @@ export function SocialAuthButtons({ intent }: { intent: "login" | "signup" }) {
   return (
     <div className="mt-6 space-y-3">
       <SocialButton
-        provider="google"
         label="Continue with Google"
-        busy={activeProvider === "google"}
-        disabled={activeProvider !== null}
-        onClick={() => continueWith("google")}
-      />
-      <SocialButton
-        provider="apple"
-        label="Continue with Apple"
-        busy={activeProvider === "apple"}
-        disabled={activeProvider !== null}
-        onClick={() => continueWith("apple")}
+        busy={isLoading}
+        disabled={isLoading}
+        onClick={continueWithGoogle}
       />
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex items-center gap-3 py-1" aria-hidden="true">
@@ -75,13 +63,11 @@ export function SocialAuthButtons({ intent }: { intent: "login" | "signup" }) {
 }
 
 function SocialButton({
-  provider,
   label,
   busy,
   disabled,
   onClick,
 }: {
-  provider: Provider;
   label: string;
   busy: boolean;
   disabled: boolean;
@@ -94,7 +80,7 @@ function SocialButton({
       disabled={disabled}
       className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-surface-elev px-4 py-3 text-sm font-medium text-zinc-100 transition hover:border-zinc-600 hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-60"
     >
-      {provider === "google" ? <GoogleMark /> : <AppleMark />}
+      <GoogleMark />
       {busy ? "Opening…" : label}
     </button>
   );
@@ -119,18 +105,6 @@ function GoogleMark() {
         fill="#EA4335"
         d="M12 6.01c1.47 0 2.79.5 3.83 1.5l2.87-2.87A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.96 5.52l3.35 2.62C7.18 7.77 9.39 6.01 12 6.01Z"
       />
-    </svg>
-  );
-}
-
-function AppleMark() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-5 w-5 fill-current"
-    >
-      <path d="M17.05 12.54c.02-2.14 1.75-3.17 1.83-3.22a4.02 4.02 0 0 0-3.16-1.71c-1.33-.14-2.62.8-3.3.8-.7 0-1.74-.79-2.88-.76a4.2 4.2 0 0 0-3.54 2.16c-1.53 2.64-.39 6.52 1.08 8.65.74 1.05 1.6 2.23 2.74 2.19 1.12-.05 1.54-.7 2.89-.7 1.34 0 1.73.7 2.9.67 1.2-.02 1.96-1.05 2.67-2.11a8.64 8.64 0 0 0 1.22-2.49 3.72 3.72 0 0 1-2.45-3.48ZM14.85 6.2a3.83 3.83 0 0 0 .88-2.74 3.9 3.9 0 0 0-2.53 1.3 3.64 3.64 0 0 0-.9 2.64 3.22 3.22 0 0 0 2.55-1.2Z" />
     </svg>
   );
 }
