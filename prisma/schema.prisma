@@ -53,6 +53,13 @@ enum Sport {
   football
 }
 
+enum ClubMemberRole {
+  owner
+  admin
+  box_office
+  gate
+}
+
 model League {
   id        String   @id @default(cuid())
   name      String
@@ -69,78 +76,102 @@ model League {
 }
 
 model Club {
-  id               String              @id @default(cuid())
-  name             String
-  slug             String              @unique
-  treasuryAddress  String?
-  leagueId         String?
-  logoEmoji        String?
-  logoUrl          String?
-  sport            Sport               @default(football)
-  createdAt        DateTime            @default(now())
-  league           League?             @relation(fields: [leagueId], references: [id], onDelete: SetNull)
-  circleAccount    ClubCircleAccount?
-  events           Event[]
-  fansFavorited    Fan[]               @relation("FavoriteClub")
-  featured          Boolean             @default(false)
+  id                String             @id @default(cuid())
+  name              String
+  slug              String             @unique
+  treasuryAddress   String?
+  leagueId          String?
+  logoEmoji         String?
+  logoUrl           String?
+  sport             Sport              @default(football)
+  createdAt         DateTime           @default(now())
+  league            League?            @relation(fields: [leagueId], references: [id], onDelete: SetNull)
+  circleAccount     ClubCircleAccount?
+  events            Event[]
+  fansFavorited     Fan[]              @relation("FavoriteClub")
+  featured          Boolean            @default(false)
   fansFavoritedMany FanFavoriteClub[]
+  members           ClubMember[]
 
   @@index([leagueId])
 }
 
+model ClubMember {
+  id             String         @id @default(cuid())
+  clubId         String
+  email          String
+  supabaseUserId String?
+  role           ClubMemberRole @default(admin)
+  createdAt      DateTime       @default(now())
+  joinedAt       DateTime?
+  club           Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, email])
+  @@unique([clubId, supabaseUserId])
+  @@index([supabaseUserId])
+  @@index([clubId, role])
+}
+
 model ClubCircleAccount {
-  id           String   @id @default(cuid())
-  clubId       String   @unique
-  walletSetId  String   @unique
-  walletId     String   @unique
-  chain        String   @default("ARC-TESTNET")
-  createdAt    DateTime @default(now())
-  club         Club     @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  id          String   @id @default(cuid())
+  clubId      String   @unique
+  walletSetId String   @unique
+  walletId    String   @unique
+  chain       String   @default("ARC-TESTNET")
+  createdAt   DateTime @default(now())
+  club        Club     @relation(fields: [clubId], references: [id], onDelete: Restrict)
 }
 
 model Event {
-  id        String       @id @default(cuid())
-  clubId    String
-  name      String
-  startsAt  DateTime
-  venue     String
-  status    EventStatus  @default(draft)
-  createdAt DateTime     @default(now())
-  club      Club         @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  id          String       @id @default(cuid())
+  clubId      String
+  name        String
+  startsAt    DateTime
+  venue       String
+  status      EventStatus  @default(draft)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  club        Club         @relation(fields: [clubId], references: [id], onDelete: Restrict)
   ticketTypes TicketType[]
-  orders    Order[]
-  tickets   Ticket[]
+  orders      Order[]
+  tickets     Ticket[]
 
   @@index([clubId, startsAt])
 }
 
 model TicketType {
-  id                String      @id @default(cuid())
-  eventId           String
-  name              String
-  priceUsdc         Decimal     @db.Decimal(18, 6)
-  quantityTotal     Int
-  quantityReserved  Int         @default(0)
-  quantitySold      Int         @default(0)
-  createdAt         DateTime    @default(now())
-  event             Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  orderItems        OrderItem[]
+  id               String      @id @default(cuid())
+  eventId          String
+  name             String
+  description      String?
+  priceUsdc        Decimal     @db.Decimal(18, 6)
+  quantityTotal    Int
+  quantityReserved Int         @default(0)
+  quantitySold     Int         @default(0)
+  maxPerOrder      Int         @default(8)
+  isActive         Boolean     @default(true)
+  salesStartAt     DateTime?
+  salesEndAt       DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  event            Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  orderItems       OrderItem[]
 
   @@index([eventId])
 }
 
 model Fan {
-  id              String           @id @default(cuid())
-  supabaseUserId  String?          @unique
-  email           String           @unique
-  displayName     String?
-  favoriteClubId  String?
-  createdAt       DateTime         @default(now())
-  favoriteClub    Club?            @relation("FavoriteClub", fields: [favoriteClubId], references: [id], onDelete: SetNull)
+  id                String            @id @default(cuid())
+  supabaseUserId    String?           @unique
+  email             String            @unique
+  displayName       String?
+  favoriteClubId    String?
+  createdAt         DateTime          @default(now())
+  favoriteClub      Club?             @relation("FavoriteClub", fields: [favoriteClubId], references: [id], onDelete: SetNull)
   wallet            FanCircleWallet?
   orders            Order[]
   tickets           Ticket[]
-  preferredCurrency String              @default("USDC")
+  preferredCurrency String            @default("USDC")
   favoriteClubs     FanFavoriteClub[]
 
   @@index([favoriteClubId])
@@ -169,107 +200,107 @@ model FanFavoriteClub {
 }
 
 model Order {
-  id                    String       @id @default(cuid())
-  fanId                 String
-  eventId               String
-  status                OrderStatus  @default(pending)
-  totalUsdc             Decimal      @db.Decimal(18, 6)
-  depositAddress        String       @unique
-  depositAddressKeyId   String?
-  expiresAt             DateTime
-  createdAt             DateTime     @default(now())
-  paidAt                DateTime?
-  fulfilledAt           DateTime?
-  fan                   Fan          @relation(fields: [fanId], references: [id], onDelete: Restrict)
-  event                 Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  items                 OrderItem[]
-  payments              Payment[]
+  id                  String      @id @default(cuid())
+  fanId               String
+  eventId             String
+  status              OrderStatus @default(pending)
+  totalUsdc           Decimal     @db.Decimal(18, 6)
+  depositAddress      String      @unique
+  depositAddressKeyId String?
+  expiresAt           DateTime
+  createdAt           DateTime    @default(now())
+  paidAt              DateTime?
+  fulfilledAt         DateTime?
+  fan                 Fan         @relation(fields: [fanId], references: [id], onDelete: Restrict)
+  event               Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  items               OrderItem[]
+  payments            Payment[]
 
   @@index([fanId, createdAt])
   @@index([status])
 }
 
 model OrderItem {
-  id              String     @id @default(cuid())
-  orderId         String
-  ticketTypeId    String
-  quantity        Int
-  unitPriceUsdc   Decimal    @db.Decimal(18, 6)
-  order           Order      @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  ticketType      TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
-  tickets         Ticket[]
+  id            String     @id @default(cuid())
+  orderId       String
+  ticketTypeId  String
+  quantity      Int
+  unitPriceUsdc Decimal    @db.Decimal(18, 6)
+  order         Order      @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  ticketType    TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
+  tickets       Ticket[]
 
   @@index([orderId])
 }
 
 model PaymentEvent {
-  id              String              @id @default(cuid())
-  circleEventId   String              @unique
-  eventType       String
-  rawPayload      Json
-  signatureKeyId  String?
-  status          PaymentEventStatus  @default(received)
-  receivedAt      DateTime            @default(now())
-  processedAt     DateTime?
+  id             String             @id @default(cuid())
+  circleEventId  String             @unique
+  eventType      String
+  rawPayload     Json
+  signatureKeyId String?
+  status         PaymentEventStatus @default(received)
+  receivedAt     DateTime           @default(now())
+  processedAt    DateTime?
 
   @@index([status, receivedAt])
 }
 
 model Payment {
-  id                     String   @id @default(cuid())
-  orderId                String
-  providerTransactionId  String   @unique
-  amountUsdc             Decimal  @db.Decimal(18, 6)
-  depositAddress         String
-  chain                  String   @default("ARC-TESTNET")
-  sourceAddress          String?
-  confirmedAt            DateTime @default(now())
-  order                  Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  id                    String   @id @default(cuid())
+  orderId               String
+  providerTransactionId String   @unique
+  amountUsdc            Decimal  @db.Decimal(18, 6)
+  depositAddress        String
+  chain                 String   @default("ARC-TESTNET")
+  sourceAddress         String?
+  confirmedAt           DateTime @default(now())
+  order                 Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
 }
 
 model Ticket {
-  id           String        @id @default(cuid())
-  orderItemId  String
-  eventId      String
-  fanId        String
-  status       TicketStatus  @default(issued)
-  seatLabel    String?
-  createdAt    DateTime      @default(now())
-  orderItem    OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
-  event        Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  fan          Fan           @relation(fields: [fanId], references: [id], onDelete: Restrict)
-  qrToken      QrToken?
+  id          String       @id @default(cuid())
+  orderItemId String
+  eventId     String
+  fanId       String
+  status      TicketStatus @default(issued)
+  seatLabel   String?
+  createdAt   DateTime     @default(now())
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  fan         Fan          @relation(fields: [fanId], references: [id], onDelete: Restrict)
+  qrToken     QrToken?
 
   @@index([eventId, status])
   @@index([fanId])
 }
 
 model QrToken {
-  id         String         @id @default(cuid())
-  ticketId   String         @unique
-  tokenHash  String         @unique
-  status     QrTokenStatus  @default(active)
-  issuedAt   DateTime       @default(now())
-  expiresAt  DateTime
-  usedAt     DateTime?
-  version    Int            @default(1)
-  ticket     Ticket         @relation(fields: [ticketId], references: [id], onDelete: Restrict)
-  scans      ScanEvent[]
+  id        String        @id @default(cuid())
+  ticketId  String        @unique
+  tokenHash String        @unique
+  status    QrTokenStatus @default(active)
+  issuedAt  DateTime      @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  version   Int           @default(1)
+  ticket    Ticket        @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  scans     ScanEvent[]
 
   @@index([status, expiresAt])
 }
 
 model ScanEvent {
-  id         String      @id @default(cuid())
-  qrTokenId  String?
-  ticketId   String?
-  result     ScanResult
-  scannedAt  DateTime    @default(now())
-  scannerId  String?
-  ipHash     String?
-  qrToken    QrToken?    @relation(fields: [qrTokenId], references: [id], onDelete: SetNull)
+  id        String     @id @default(cuid())
+  qrTokenId String?
+  ticketId  String?
+  result    ScanResult
+  scannedAt DateTime   @default(now())
+  scannerId String?
+  ipHash    String?
+  qrToken   QrToken?   @relation(fields: [qrTokenId], references: [id], onDelete: SetNull)
 
   @@index([qrTokenId, scannedAt])
   @@index([result, scannedAt])

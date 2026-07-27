@@ -12,6 +12,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "circle:provision-clubs": "tsx --env-file=.env.local scripts/provision-club-circle-accounts.ts",
+    "club:invite-owner": "tsx --env-file=.env.local scripts/invite-club-owner.ts",
     "webhook:replay": "tsx --env-file=.env.local scripts/replay-webhook-event.ts",
     "qr:rederive-hashes": "tsx --env-file=.env.local scripts/rederive-qr-hashes.ts",
     "email:test": "tsx --env-file=.env.local scripts/test-email.ts"
@@ -58,9 +59,7 @@
     "postcss": "8.5.15",
     "protobufjs": "7.6.5",
     "undici": "6.27.0",
-    "websocket-driver": "0.7.5"
-  },
-  "overrides": {
+    "websocket-driver": "0.7.5",
     "@circle-fin/w3s-pw-web-sdk": {
       "uuid": "11.1.1"
     }

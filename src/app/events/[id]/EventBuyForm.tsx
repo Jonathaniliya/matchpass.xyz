@@ -9,6 +9,7 @@ type TicketTypeOption = {
   name: string;
   priceUsdc: string;
   remaining: number;
+  maxPerOrder: number;
 };
 
 export function EventBuyForm({
@@ -104,7 +105,7 @@ export function EventBuyForm({
             </div>
             <QuantityStepper
               value={quantities[t.id] ?? 0}
-              max={Math.min(t.remaining, 8)}
+              max={Math.min(t.remaining, t.maxPerOrder)}
               onChange={(v) => setQuantities((q) => ({ ...q, [t.id]: v }))}
             />
           </div>

@@ -104,16 +104,29 @@ If testing through ngrok, add the current ngrok callback URL as well. Set
 `NEXT_PUBLIC_APP_URL` to the canonical origin for the environment; when it is
 unset locally, the reset endpoint falls back to the request origin.
 
-For Google and Apple sign-in:
+For Google sign-in:
 
-1. Enable each provider under Supabase **Authentication → Providers**.
+1. Enable Google under Supabase **Authentication → Providers**.
 2. Add `http://localhost:3000/auth/callback` and each deployed app callback to
    Supabase **Authentication → URL Configuration → Redirect URLs**.
-3. In Google or Apple, use Supabase's provider callback URL:
+3. In Google, use Supabase's provider callback URL:
    `https://<project-ref>.supabase.co/auth/v1/callback`.
 
-Apple web OAuth additionally requires an Apple Services ID, Team ID, signing
-key, and a client secret that must be renewed before it expires.
+Apple sign-in is intentionally deferred.
+
+## Club Dashboard
+
+Club access is invitation-only and is stored in `ClubMember`, not in editable
+Supabase user metadata. Create the initial owner invitation after the database
+migration is deployed:
+
+```powershell
+npm run club:invite-owner -- <club-slug> <verified-login-email>
+```
+
+The invitation activates when that email signs in through Supabase. Club
+owners, admins, and box-office staff can manage events, ticket prices,
+inventory, sales windows, and public availability at `/club`.
 
 ## Suggested Folder Structure
 

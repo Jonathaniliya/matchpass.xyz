@@ -9,14 +9,27 @@ export default async function EventPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const now = new Date();
   const [event, fan] = await Promise.all([
     prisma.event.findUnique({
       where: { id },
-      include: { club: true, ticketTypes: { orderBy: { priceUsdc: "asc" } } },
+      include: {
+        club: true,
+        ticketTypes: {
+          where: {
+            isActive: true,
+            AND: [
+              { OR: [{ salesStartAt: null }, { salesStartAt: { lte: now } }] },
+              { OR: [{ salesEndAt: null }, { salesEndAt: { gt: now } }] },
+            ],
+          },
+          orderBy: { priceUsdc: "asc" },
+        },
+      },
     }),
     getCurrentFan(),
   ]);
-  if (!event) notFound();
+  if (!event || event.status !== "on_sale") notFound();
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -68,6 +81,7 @@ export default async function EventPage({
               name: t.name,
               priceUsdc: t.priceUsdc.toString(),
               remaining: t.quantityTotal - t.quantityReserved - t.quantitySold,
+              maxPerOrder: t.maxPerOrder,
             }))}
           />
         </section>

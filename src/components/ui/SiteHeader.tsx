@@ -2,9 +2,31 @@ import Link from "next/link";
 import { getCurrentFan } from "@/lib/server/auth/requireFan";
 import { LogoutButton } from "@/components/ui/LogoutButton";
 import { HeaderAccount } from "@/components/ui/HeaderAccount";
+import { prisma } from "@/lib/server/db/prisma";
 
 export async function SiteHeader() {
   const fan = await getCurrentFan();
+  let hasClubAccess = false;
+  if (fan) {
+    try {
+      hasClubAccess =
+        (await prisma.clubMember.count({
+          where: {
+            OR: [
+              ...(fan.supabaseUserId
+                ? [{ supabaseUserId: fan.supabaseUserId }]
+                : []),
+              { email: fan.email, supabaseUserId: null },
+            ],
+          },
+        })) > 0;
+    } catch (error) {
+      // Keep the fan-facing app available during the dashboard migration
+      // rollout. Any other database error must still fail visibly.
+      if (!isMissingTableError(error)) throw error;
+      console.warn("club_dashboard_migration_pending");
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-surface/80 backdrop-blur">
@@ -25,6 +47,14 @@ export async function SiteHeader() {
         <div className="flex items-center gap-2">
           {fan ? (
             <>
+              {hasClubAccess && (
+                <Link
+                  href="/club"
+                  className="rounded-full border border-cyan-900/70 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-950/40"
+                >
+                  Club
+                </Link>
+              )}
               <HeaderAccount
                 fan={{
                   displayName: fan.displayName,
@@ -53,5 +83,14 @@ export async function SiteHeader() {
         </div>
       </div>
     </header>
+  );
+}
+
+function isMissingTableError(error: unknown): error is { code: "P2021" } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2021"
   );
 }

@@ -42,23 +42,45 @@ export async function createOrder(params: {
   const orderId = await prisma.$transaction(async (tx) => {
     const items: Array<{ ticketTypeId: string; quantity: number; unitPriceUsdc: Prisma.Decimal }> = [];
 
-    for (const item of input.items) {
-      const tt = await tx.ticketType.findUnique({ where: { id: item.ticketTypeId } });
-      if (!tt) throw new OrderError("ticket_type_invalid", 400);
-      const remaining = tt.quantityTotal - tt.quantityReserved - tt.quantitySold;
-      if (remaining < item.quantity) {
-        throw new OrderError("not_enough_inventory", 409);
+    // Lock inventory in a consistent order. Each conditional UPDATE performs
+    // availability checking and reservation atomically, preventing concurrent
+    // checkouts from overselling the final tickets.
+    for (const item of [...input.items].sort((a, b) =>
+      a.ticketTypeId.localeCompare(b.ticketTypeId),
+    )) {
+      const reserved = await tx.$queryRaw<
+        Array<{ id: string; priceUsdc: Prisma.Decimal; maxPerOrder: number }>
+      >(Prisma.sql`
+        UPDATE "TicketType"
+        SET
+          "quantityReserved" = "quantityReserved" + ${item.quantity},
+          "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ${item.ticketTypeId}
+          AND "eventId" = ${event.id}
+          AND "isActive" = true
+          AND ("salesStartAt" IS NULL OR "salesStartAt" <= CURRENT_TIMESTAMP)
+          AND ("salesEndAt" IS NULL OR "salesEndAt" > CURRENT_TIMESTAMP)
+          AND "maxPerOrder" >= ${item.quantity}
+          AND "quantityReserved" + "quantitySold" + ${item.quantity} <= "quantityTotal"
+          AND EXISTS (
+            SELECT 1 FROM "Event"
+            WHERE "Event"."id" = ${event.id}
+              AND "Event"."status" = 'on_sale'
+          )
+        RETURNING "id", "priceUsdc", "maxPerOrder"
+      `);
+      const ticketType = reserved[0];
+      if (!ticketType) {
+        throw new OrderError("ticket_type_unavailable", 409);
       }
-      await tx.ticketType.update({
-        where: { id: tt.id },
-        data: { quantityReserved: { increment: item.quantity } },
-      });
-      const lineTotal = tt.priceUsdc.mul(item.quantity);
+
+      const unitPriceUsdc = new Prisma.Decimal(ticketType.priceUsdc);
+      const lineTotal = unitPriceUsdc.mul(item.quantity);
       totalUsdc = totalUsdc.add(lineTotal);
       items.push({
-        ticketTypeId: tt.id,
+        ticketTypeId: ticketType.id,
         quantity: item.quantity,
-        unitPriceUsdc: tt.priceUsdc,
+        unitPriceUsdc,
       });
     }
 
@@ -113,17 +135,24 @@ export async function releaseOrder(orderId: string): Promise<void> {
       include: { items: true },
     });
     if (!order) return;
-    if (order.status !== "pending") return;
-    for (const item of order.items) {
-      await tx.ticketType.update({
-        where: { id: item.ticketTypeId },
-        data: { quantityReserved: { decrement: item.quantity } },
-      });
-    }
-    await tx.order.update({
-      where: { id: order.id },
+    const expired = await tx.order.updateMany({
+      where: { id: order.id, status: "pending" },
       data: { status: "expired" },
     });
+    if (expired.count !== 1) return;
+
+    for (const item of [...order.items].sort((a, b) =>
+      a.ticketTypeId.localeCompare(b.ticketTypeId),
+    )) {
+      const released = await tx.ticketType.updateMany({
+        where: {
+          id: item.ticketTypeId,
+          quantityReserved: { gte: item.quantity },
+        },
+        data: { quantityReserved: { decrement: item.quantity } },
+      });
+      if (released.count !== 1) throw new Error("inventory_release_invariant_failed");
+    }
   });
 }
 
