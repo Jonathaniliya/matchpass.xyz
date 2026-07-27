@@ -40,7 +40,18 @@ export async function createOrder(params: {
 
   let totalUsdc = new Prisma.Decimal(0);
   const orderId = await prisma.$transaction(async (tx) => {
-    const items: Array<{ ticketTypeId: string; quantity: number; unitPriceUsdc: Prisma.Decimal }> = [];
+    const items: Array<{
+      ticketTypeId: string;
+      quantity: number;
+      unitPriceUsdc: Prisma.Decimal;
+      admissionType: "general_admission" | "reserved_seating";
+      ticketTypeName: string;
+      sectionLabel: string | null;
+      rowLabel: string | null;
+      entranceLabel: string | null;
+      accessInstructions: string | null;
+      isTransferable: boolean;
+    }> = [];
 
     // Lock inventory in a consistent order. Each conditional UPDATE performs
     // availability checking and reservation atomically, preventing concurrent
@@ -49,7 +60,18 @@ export async function createOrder(params: {
       a.ticketTypeId.localeCompare(b.ticketTypeId),
     )) {
       const reserved = await tx.$queryRaw<
-        Array<{ id: string; priceUsdc: Prisma.Decimal; maxPerOrder: number }>
+        Array<{
+          id: string;
+          priceUsdc: Prisma.Decimal;
+          maxPerOrder: number;
+          admissionType: "general_admission" | "reserved_seating";
+          name: string;
+          sectionLabel: string | null;
+          rowLabel: string | null;
+          entranceLabel: string | null;
+          accessInstructions: string | null;
+          isTransferable: boolean;
+        }>
       >(Prisma.sql`
         UPDATE "TicketType"
         SET
@@ -67,7 +89,17 @@ export async function createOrder(params: {
             WHERE "Event"."id" = ${event.id}
               AND "Event"."status" = 'on_sale'
           )
-        RETURNING "id", "priceUsdc", "maxPerOrder"
+        RETURNING
+          "id",
+          "name",
+          "priceUsdc",
+          "maxPerOrder",
+          "admissionType",
+          "sectionLabel",
+          "rowLabel",
+          "entranceLabel",
+          "accessInstructions",
+          "isTransferable"
       `);
       const ticketType = reserved[0];
       if (!ticketType) {
@@ -81,6 +113,13 @@ export async function createOrder(params: {
         ticketTypeId: ticketType.id,
         quantity: item.quantity,
         unitPriceUsdc,
+        admissionType: ticketType.admissionType,
+        ticketTypeName: ticketType.name,
+        sectionLabel: ticketType.sectionLabel,
+        rowLabel: ticketType.rowLabel,
+        entranceLabel: ticketType.entranceLabel,
+        accessInstructions: ticketType.accessInstructions,
+        isTransferable: ticketType.isTransferable,
       });
     }
 
@@ -92,9 +131,49 @@ export async function createOrder(params: {
         totalUsdc,
         depositAddress: placeholderAddress,
         expiresAt,
-        items: { create: items },
       },
     });
+
+    for (const item of items) {
+      const orderItem = await tx.orderItem.create({
+        data: {
+          orderId: order.id,
+          ticketTypeId: item.ticketTypeId,
+          quantity: item.quantity,
+          unitPriceUsdc: item.unitPriceUsdc,
+          ticketTypeName: item.ticketTypeName,
+          admissionType: item.admissionType,
+          sectionLabel: item.sectionLabel,
+          rowLabel: item.rowLabel,
+          entranceLabel: item.entranceLabel,
+          accessInstructions: item.accessInstructions,
+          isTransferable: item.isTransferable,
+        },
+      });
+
+      if (item.admissionType === "reserved_seating") {
+        const seats = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          UPDATE "TicketSeat"
+          SET
+            "status" = 'reserved',
+            "orderItemId" = ${orderItem.id},
+            "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "id" IN (
+            SELECT "id"
+            FROM "TicketSeat"
+            WHERE "ticketTypeId" = ${item.ticketTypeId}
+              AND "status" = 'available'
+            ORDER BY "sortOrder", "id"
+            FOR UPDATE SKIP LOCKED
+            LIMIT ${item.quantity}
+          )
+          RETURNING "id"
+        `);
+        if (seats.length !== item.quantity) {
+          throw new OrderError("reserved_seats_unavailable", 409);
+        }
+      }
+    }
     return order.id;
   });
 
@@ -144,6 +223,10 @@ export async function releaseOrder(orderId: string): Promise<void> {
     for (const item of [...order.items].sort((a, b) =>
       a.ticketTypeId.localeCompare(b.ticketTypeId),
     )) {
+      await tx.ticketSeat.updateMany({
+        where: { orderItemId: item.id, status: "reserved" },
+        data: { status: "available", orderItemId: null },
+      });
       const released = await tx.ticketType.updateMany({
         where: {
           id: item.ticketTypeId,

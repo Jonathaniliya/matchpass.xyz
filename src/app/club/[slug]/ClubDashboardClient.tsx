@@ -5,11 +5,19 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type EventStatus = "draft" | "on_sale" | "sold_out" | "closed";
+type AdmissionType = "general_admission" | "reserved_seating";
 
 type DashboardTicketType = {
   id: string;
   name: string;
   description: string | null;
+  admissionType: AdmissionType;
+  sectionLabel: string | null;
+  rowLabel: string | null;
+  seatStartNumber: number | null;
+  entranceLabel: string | null;
+  accessInstructions: string | null;
+  isTransferable: boolean;
   priceUsdc: string;
   quantityTotal: number;
   quantityReserved: number;
@@ -272,12 +280,24 @@ function TicketTypeRow({
       <div>
         <div className="flex items-center gap-2">
           <p className="font-medium">{ticketType.name}</p>
+          <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] uppercase text-cyan-300">
+            {ticketType.admissionType === "reserved_seating" ? "reserved seats" : "general admission"}
+          </span>
           <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase ${ticketType.isActive ? "bg-emerald-500/15 text-emerald-400" : "bg-zinc-700 text-zinc-400"}`}>
             {ticketType.isActive ? "available" : "hidden"}
           </span>
         </div>
         <p className="mt-1 text-xs text-zinc-500">
           {available} available · {ticketType.quantityReserved} reserved · {ticketType.quantitySold} sold · max {ticketType.maxPerOrder}/order
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          {ticketType.admissionType === "reserved_seating"
+            ? `${ticketType.sectionLabel} · row ${ticketType.rowLabel} · seats from ${ticketType.seatStartNumber}`
+            : ticketType.sectionLabel
+              ? `${ticketType.sectionLabel} · unassigned seating`
+              : "Unassigned seating"}
+          {ticketType.entranceLabel ? ` · enter ${ticketType.entranceLabel}` : ""}
+          {ticketType.isTransferable ? " · transfer eligible" : ""}
         </p>
       </div>
       <div className="flex items-center gap-4">
@@ -306,6 +326,17 @@ function TicketTypeForm({
   const router = useRouter();
   const [name, setName] = useState(ticketType?.name ?? "");
   const [description, setDescription] = useState(ticketType?.description ?? "");
+  const [admissionType, setAdmissionType] = useState<AdmissionType>(
+    ticketType?.admissionType ?? "general_admission",
+  );
+  const [sectionLabel, setSectionLabel] = useState(ticketType?.sectionLabel ?? "");
+  const [rowLabel, setRowLabel] = useState(ticketType?.rowLabel ?? "");
+  const [seatStartNumber, setSeatStartNumber] = useState(
+    ticketType?.seatStartNumber ? String(ticketType.seatStartNumber) : "1",
+  );
+  const [entranceLabel, setEntranceLabel] = useState(ticketType?.entranceLabel ?? "");
+  const [accessInstructions, setAccessInstructions] = useState(ticketType?.accessInstructions ?? "");
+  const [isTransferable, setIsTransferable] = useState(ticketType?.isTransferable ?? false);
   const [priceUsdc, setPriceUsdc] = useState(ticketType?.priceUsdc ?? "");
   const [quantityTotal, setQuantityTotal] = useState(String(ticketType?.quantityTotal ?? ""));
   const [maxPerOrder, setMaxPerOrder] = useState(String(ticketType?.maxPerOrder ?? 8));
@@ -322,6 +353,14 @@ function TicketTypeForm({
     const body = {
       name,
       description: description.trim() || null,
+      admissionType,
+      sectionLabel: sectionLabel.trim() || null,
+      rowLabel: admissionType === "reserved_seating" ? rowLabel.trim() || null : null,
+      seatStartNumber:
+        admissionType === "reserved_seating" ? Number(seatStartNumber) : null,
+      entranceLabel: entranceLabel.trim() || null,
+      accessInstructions: accessInstructions.trim() || null,
+      isTransferable,
       priceUsdc,
       quantityTotal: Number(quantityTotal),
       maxPerOrder: Number(maxPerOrder),
@@ -351,11 +390,22 @@ function TicketTypeForm({
         <Field label="Ticket name">
           <input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
         </Field>
+        <Field label="Admission">
+          <select
+            value={admissionType}
+            disabled={Boolean(ticketType)}
+            onChange={(e) => setAdmissionType(e.target.value as AdmissionType)}
+            className={inputClass}
+          >
+            <option value="general_admission">General admission</option>
+            <option value="reserved_seating">Reserved seating</option>
+          </select>
+        </Field>
         <Field label="Price (USDC)">
           <input required inputMode="decimal" value={priceUsdc} onChange={(e) => setPriceUsdc(e.target.value)} placeholder="25.00" className={inputClass} />
         </Field>
-        <Field label="Total quantity">
-          <input required type="number" min={1} max={1_000_000} value={quantityTotal} onChange={(e) => setQuantityTotal(e.target.value)} className={inputClass} />
+        <Field label={admissionType === "reserved_seating" ? "Seats to publish" : "Total quantity"}>
+          <input required type="number" min={1} max={admissionType === "reserved_seating" ? 10_000 : 1_000_000} value={quantityTotal} onChange={(e) => setQuantityTotal(e.target.value)} className={inputClass} />
         </Field>
         <Field label="Maximum per order">
           <input required type="number" min={1} max={50} value={maxPerOrder} onChange={(e) => setMaxPerOrder(e.target.value)} className={inputClass} />
@@ -369,10 +419,38 @@ function TicketTypeForm({
         <Field label="Description (optional)" className="sm:col-span-2">
           <input maxLength={240} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
         </Field>
+        <Field label={admissionType === "reserved_seating" ? "Section" : "Area / stand (optional)"}>
+          <input value={sectionLabel} onChange={(e) => setSectionLabel(e.target.value)} className={inputClass} />
+        </Field>
+        {admissionType === "reserved_seating" && (
+          <>
+            <Field label="Row">
+              <input required value={rowLabel} onChange={(e) => setRowLabel(e.target.value)} className={inputClass} />
+            </Field>
+            <Field label="First seat number">
+              <input required type="number" min={1} value={seatStartNumber} onChange={(e) => setSeatStartNumber(e.target.value)} className={inputClass} />
+            </Field>
+          </>
+        )}
+        <Field label="Entrance / gate (optional)">
+          <input value={entranceLabel} onChange={(e) => setEntranceLabel(e.target.value)} className={inputClass} />
+        </Field>
+        <Field label="Entry instructions (optional)" className="sm:col-span-2">
+          <input maxLength={500} value={accessInstructions} onChange={(e) => setAccessInstructions(e.target.value)} placeholder="Bring photo ID. Gates open 90 minutes before kick-off." className={inputClass} />
+        </Field>
       </div>
+      {admissionType === "reserved_seating" && (
+        <p className="mt-3 text-xs leading-5 text-zinc-500">
+          Seats are created sequentially for this row and automatically assigned during checkout. Create a separate ticket type for each priced row or section.
+        </p>
+      )}
       <label className="mt-4 flex items-center gap-2 text-sm text-zinc-300">
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 accent-emerald-400" />
         Available for sale when the event is on sale
+      </label>
+      <label className="mt-3 flex items-center gap-2 text-sm text-zinc-300">
+        <input type="checkbox" checked={isTransferable} onChange={(e) => setIsTransferable(e.target.checked)} className="h-4 w-4 accent-cyan-400" />
+        Eligible for controlled transfer when the marketplace launches
       </label>
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       <div className="mt-4 flex gap-3">
@@ -423,6 +501,9 @@ function errorMessage(error: unknown): string {
     active_ticket_type_required: "Add at least one available ticket type before publishing this event.",
     quantity_below_committed_inventory: "Total quantity cannot be lower than tickets already reserved or sold.",
     invalid_sales_window: "The sales end must be after the sales start.",
+    admission_type_locked: "Admission type cannot change after this ticket type is created.",
+    seat_inventory_locked: "Seat layout cannot change after seats have been reserved or sold.",
+    reserved_seat_configuration_required: "Reserved seating needs a section, row, and first seat number.",
     invalid_body: "Check the form values and try again.",
   };
   return messages[error.message] ?? error.message.replaceAll("_", " ");

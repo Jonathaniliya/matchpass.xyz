@@ -67,6 +67,15 @@ export default async function EventPage({
                 <p className="mt-1 text-xs text-zinc-500">
                   {remaining > 0 ? `${remaining} remaining` : "Sold out"}
                 </p>
+                <p className="mt-2 text-sm text-zinc-400">
+                  {tt.admissionType === "reserved_seating"
+                    ? `${tt.sectionLabel} · Row ${tt.rowLabel} · seat assigned at checkout`
+                    : tt.sectionLabel ?? "General admission"}
+                  {tt.entranceLabel ? ` · ${tt.entranceLabel}` : ""}
+                </p>
+                {tt.description && (
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">{tt.description}</p>
+                )}
               </div>
             );
           })}
@@ -82,6 +91,10 @@ export default async function EventPage({
               priceUsdc: t.priceUsdc.toString(),
               remaining: t.quantityTotal - t.quantityReserved - t.quantitySold,
               maxPerOrder: t.maxPerOrder,
+              admissionType: t.admissionType,
+              sectionLabel: t.sectionLabel,
+              rowLabel: t.rowLabel,
+              entranceLabel: t.entranceLabel,
             }))}
           />
         </section>

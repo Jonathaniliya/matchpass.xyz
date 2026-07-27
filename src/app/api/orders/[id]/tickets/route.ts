@@ -40,7 +40,13 @@ export async function GET(
   const tickets: Array<{
     ticketId: string;
     ticketTypeName: string;
+    admissionType: "general_admission" | "reserved_seating" | null;
+    sectionLabel: string | null;
+    rowLabel: string | null;
     seatLabel: string | null;
+    entranceLabel: string | null;
+    accessInstructions: string | null;
+    isTransferable: boolean;
     qrPayload: string | null;
     qrStatus: "active" | "used" | "expired" | "revoked";
     expiresAt: string;
@@ -54,8 +60,14 @@ export async function GET(
       if (qr.status !== "active") {
         tickets.push({
           ticketId: ticket.id,
-          ticketTypeName: item.ticketType.name,
+          ticketTypeName: ticket.ticketTypeName ?? item.ticketType.name,
+          admissionType: ticket.admissionType,
+          sectionLabel: ticket.sectionLabel,
+          rowLabel: ticket.rowLabel,
           seatLabel: ticket.seatLabel,
+          entranceLabel: ticket.entranceLabel,
+          accessInstructions: ticket.accessInstructions,
+          isTransferable: ticket.isTransferable,
           qrPayload: null,
           qrStatus: qr.status,
           expiresAt: qr.expiresAt.toISOString(),
@@ -67,8 +79,14 @@ export async function GET(
 
       tickets.push({
         ticketId: ticket.id,
-        ticketTypeName: item.ticketType.name,
+        ticketTypeName: ticket.ticketTypeName ?? item.ticketType.name,
+        admissionType: ticket.admissionType,
+        sectionLabel: ticket.sectionLabel,
+        rowLabel: ticket.rowLabel,
         seatLabel: ticket.seatLabel,
+        entranceLabel: ticket.entranceLabel,
+        accessInstructions: ticket.accessInstructions,
+        isTransferable: ticket.isTransferable,
         qrPayload: buildQrPayload(ticket.id, token),
         qrStatus: qr.status,
         expiresAt: qr.expiresAt.toISOString(),

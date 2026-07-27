@@ -17,7 +17,13 @@ type TicketsResponse = {
   tickets: Array<{
     ticketId: string;
     ticketTypeName: string;
+    admissionType: "general_admission" | "reserved_seating" | null;
+    sectionLabel: string | null;
+    rowLabel: string | null;
     seatLabel: string | null;
+    entranceLabel: string | null;
+    accessInstructions: string | null;
+    isTransferable: boolean;
     qrPayload: string | null;
     qrStatus: "active" | "used" | "expired" | "revoked";
     expiresAt: string;
@@ -131,8 +137,25 @@ function TicketCard({
         <p className="text-xs uppercase tracking-wide text-zinc-500">
           {ticket.ticketTypeName}
         </p>
-        {ticket.seatLabel && (
-          <p className="mt-1 text-sm text-zinc-300">Seat {ticket.seatLabel}</p>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-300">
+          {ticket.admissionType === "general_admission" && (
+            <span className="rounded-full border border-border px-2 py-1">General admission</span>
+          )}
+          {ticket.sectionLabel && (
+            <span className="rounded-full border border-border px-2 py-1">Section {ticket.sectionLabel}</span>
+          )}
+          {ticket.rowLabel && (
+            <span className="rounded-full border border-border px-2 py-1">Row {ticket.rowLabel}</span>
+          )}
+          {ticket.seatLabel && (
+            <span className="rounded-full border border-cyan-900/70 bg-cyan-950/30 px-2 py-1 text-cyan-200">Seat {ticket.seatLabel}</span>
+          )}
+          {ticket.entranceLabel && (
+            <span className="rounded-full border border-border px-2 py-1">Enter: {ticket.entranceLabel}</span>
+          )}
+        </div>
+        {ticket.accessInstructions && (
+          <p className="mt-3 text-xs leading-5 text-zinc-400">{ticket.accessInstructions}</p>
         )}
         <div className="mt-3 flex items-center justify-between rounded-xl border border-border bg-surface-elev px-3 py-2">
           <div>
@@ -170,6 +193,11 @@ function TicketCard({
           </p>
         </div>
       )}
+      <p className="text-center text-[10px] uppercase tracking-wide text-zinc-500">
+        {ticket.isTransferable
+          ? "Transfer eligible — controlled transfers coming soon"
+          : "Transfers disabled by the club"}
+      </p>
     </article>
   );
 }

@@ -43,6 +43,13 @@ export async function POST(
       eventId,
       name: parsed.data.name,
       description: parsed.data.description,
+      admissionType: parsed.data.admissionType,
+      sectionLabel: parsed.data.sectionLabel,
+      rowLabel: parsed.data.rowLabel,
+      seatStartNumber: parsed.data.seatStartNumber,
+      entranceLabel: parsed.data.entranceLabel,
+      accessInstructions: parsed.data.accessInstructions,
+      isTransferable: parsed.data.isTransferable,
       priceUsdc: new Prisma.Decimal(parsed.data.priceUsdc),
       quantityTotal: parsed.data.quantityTotal,
       maxPerOrder: parsed.data.maxPerOrder,
@@ -53,6 +60,22 @@ export async function POST(
       salesEndAt: parsed.data.salesEndAt
         ? new Date(parsed.data.salesEndAt)
         : null,
+      ...(parsed.data.admissionType === "reserved_seating"
+        ? {
+            seats: {
+              create: Array.from({ length: parsed.data.quantityTotal }, (_, index) => {
+                const seatNumber = String((parsed.data.seatStartNumber ?? 1) + index);
+                return {
+                  label: `${parsed.data.sectionLabel} · Row ${parsed.data.rowLabel} · Seat ${seatNumber}`,
+                  sectionLabel: parsed.data.sectionLabel,
+                  rowLabel: parsed.data.rowLabel,
+                  seatNumber,
+                  sortOrder: index,
+                };
+              }),
+            },
+          }
+        : {}),
     },
     select: { id: true },
   });

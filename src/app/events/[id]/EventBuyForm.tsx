@@ -10,6 +10,10 @@ type TicketTypeOption = {
   priceUsdc: string;
   remaining: number;
   maxPerOrder: number;
+  admissionType: "general_admission" | "reserved_seating";
+  sectionLabel: string | null;
+  rowLabel: string | null;
+  entranceLabel: string | null;
 };
 
 export function EventBuyForm({
@@ -102,6 +106,12 @@ export function EventBuyForm({
             <div>
               <p className="font-medium">{t.name}</p>
               <p className="text-xs text-zinc-500">{t.priceUsdc} USDC each</p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                {t.admissionType === "reserved_seating"
+                  ? `${t.sectionLabel} · row ${t.rowLabel} · auto-assigned seat`
+                  : t.sectionLabel ?? "General admission"}
+                {t.entranceLabel ? ` · ${t.entranceLabel}` : ""}
+              </p>
             </div>
             <QuantityStepper
               value={quantities[t.id] ?? 0}
