@@ -10,7 +10,7 @@ export function getResend(): Resend | null {
 }
 
 export function getFromAddress(): string {
-  return process.env.EMAIL_FROM ?? "Ticket.com <onboarding@resend.dev>";
+  return process.env.EMAIL_FROM ?? "MatchPass.xyz <onboarding@resend.dev>";
 }
 
 export function getAppBaseUrl(): string {

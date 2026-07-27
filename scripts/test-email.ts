@@ -19,7 +19,7 @@ async function main() {
   const result = await resend.emails.send({
     from,
     to,
-    subject: "Ticket.com — Resend test",
+    subject: "MatchPass.xyz — Resend test",
     html: "<p>If you can read this, Resend wiring works. 🎟️</p>",
     text: "If you can read this, Resend wiring works.",
   });

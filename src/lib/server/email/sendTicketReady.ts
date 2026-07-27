@@ -74,7 +74,7 @@ export async function sendTicketReadyEmail(p: Params): Promise<void> {
             </tr>
           </table>
           <p style="margin:24px 0 0;font-size:11px;color:#52525b;">
-            You're receiving this because you bought a ticket on ticket.com.
+            You're receiving this because you bought a ticket on matchpass.xyz.
           </p>
         </td>
       </tr>

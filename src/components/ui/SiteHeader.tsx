@@ -32,7 +32,7 @@ export async function SiteHeader() {
     <header className="sticky top-0 z-40 w-full border-b border-border bg-surface/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
         <Link href="/" className="text-sm font-semibold tracking-tight">
-          ticket<span className="text-gradient-accent">.com</span>
+          matchpass<span className="text-gradient-accent">.xyz</span>
         </Link>
 
         <nav className="hidden gap-5 text-sm text-zinc-300 sm:flex">

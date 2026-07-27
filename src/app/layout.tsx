@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ticket.com — stablecoin matchday tickets",
+  applicationName: "matchpass.xyz",
+  title: "matchpass.xyz — stablecoin matchday tickets",
   description: "Buy football tickets with stablecoins. Issued on Arc.",
 };
 

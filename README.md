@@ -1,4 +1,4 @@
-# Fan Ticketing Platform MVP
+# matchpass.xyz
 
 A Next.js-based ticketing and access-control platform for football clubs using Circle Managed Payments and Arc testnet.
 

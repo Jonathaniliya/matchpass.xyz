@@ -82,7 +82,7 @@ export function FavoriteTeamsModal({
             Welcome to
           </p>
           <h1 className="text-4xl font-bold tracking-tight">
-            ticket<span className="text-gradient-accent">.com</span>
+            matchpass<span className="text-gradient-accent">.xyz</span>
           </h1>
           <p className="mt-4 text-sm text-zinc-400">
             Pick the clubs you follow. We&rsquo;ll personalise your matchday
