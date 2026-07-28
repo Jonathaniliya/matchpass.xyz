@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
   if (error || !data.user) {
     console.warn(
       `supabase_signup_failed ${JSON.stringify({
+        hasError: Boolean(error),
+        name: error?.name ?? null,
         code: error?.code ?? null,
         status: error?.status ?? null,
         hasUser: Boolean(data?.user),
@@ -79,6 +81,13 @@ export async function POST(req: NextRequest) {
 }
 
 function signupErrorCode(error: AuthError | null): string {
+  // A transport failure can happen after Supabase has accepted the signup and
+  // sent the confirmation email. Treat that outcome as uncertain so the UI
+  // does not incorrectly tell the user that no account was created.
+  if (error && !error.code && !error.status) {
+    return "signup_status_uncertain";
+  }
+
   switch (error?.code) {
     case "over_email_send_rate_limit":
     case "over_request_rate_limit":

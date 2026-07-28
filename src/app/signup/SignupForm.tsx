@@ -110,6 +110,8 @@ function signupErrorMessage(code: unknown): string {
   const messages: Record<string, string> = {
     confirmation_email_rate_limited:
       "Too many confirmation emails were requested. Wait about an hour and try again, or use Google sign-in.",
+    signup_status_uncertain:
+      "We could not confirm the response from Supabase. If a confirmation email arrived, your account was created—open that link to continue. Otherwise, try again shortly.",
     email_already_registered:
       "An account already uses this email. Log in or reset its password instead.",
     weak_password: "Choose a stronger password with a mix of letters, numbers, and symbols.",
