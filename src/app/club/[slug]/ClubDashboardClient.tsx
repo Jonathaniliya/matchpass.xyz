@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type EventStatus = "draft" | "on_sale" | "sold_out" | "closed";
+type EventStatus = "draft" | "on_sale" | "sold_out" | "closed" | "cancelled";
+type LifecycleAction = "publish" | "unpublish" | "close" | "cancel" | "archive" | "unarchive";
 type AdmissionType = "general_admission" | "reserved_seating";
 
 type DashboardTicketType = {
@@ -34,6 +35,11 @@ export type DashboardEvent = {
   venue: string;
   startsAt: string;
   status: EventStatus;
+  archivedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  orderCount: number;
+  refundPendingCount: number;
   ticketTypes: DashboardTicketType[];
 };
 
@@ -46,6 +52,8 @@ export function ClubDashboardClient({
   canManage: boolean;
   events: DashboardEvent[];
 }) {
+  const activeEvents = events.filter((event) => !event.archivedAt);
+  const archivedEvents = events.filter((event) => event.archivedAt);
   return (
     <div>
       <div className="flex items-end justify-between gap-4">
@@ -58,7 +66,7 @@ export function ClubDashboardClient({
       {canManage && <CreateEventForm clubSlug={clubSlug} />}
 
       <div className="mt-6 space-y-5">
-        {events.map((event) => (
+        {activeEvents.map((event) => (
           <EventPanel
             key={event.id}
             event={event}
@@ -66,12 +74,29 @@ export function ClubDashboardClient({
             canManage={canManage}
           />
         ))}
-        {events.length === 0 && (
+        {activeEvents.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-zinc-500">
             No events yet. Create the first matchday above.
           </div>
         )}
       </div>
+      {archivedEvents.length > 0 && (
+        <details className="mt-8 rounded-2xl border border-border bg-surface/50 p-5">
+          <summary className="cursor-pointer text-sm font-medium text-zinc-300">
+            Archived events ({archivedEvents.length})
+          </summary>
+          <div className="mt-5 space-y-5">
+            {archivedEvents.map((event) => (
+              <EventPanel
+                key={event.id}
+                event={event}
+                clubSlug={clubSlug}
+                canManage={canManage}
+              />
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -155,19 +180,28 @@ function EventPanel({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState(event.status);
   const [statusBusy, setStatusBusy] = useState(false);
   const [addingTicket, setAddingTicket] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function changeStatus(nextStatus: EventStatus) {
+  async function runLifecycleAction(action: LifecycleAction) {
+    let body: { action: LifecycleAction; reason?: string } = { action };
+    if (action === "cancel") {
+      const reason = window.prompt(
+        "Why is this event being cancelled? Fans and refund reviewers will use this reason.",
+      );
+      if (reason === null) return;
+      if (reason.trim().length < 5) {
+        setError("Enter a cancellation reason of at least 5 characters.");
+        return;
+      }
+      if (!window.confirm("Cancel this event, void issued tickets, and queue paid orders for refunds?")) return;
+      body = { action, reason: reason.trim() };
+    }
     setStatusBusy(true);
     setError(null);
     try {
-      await requestJson(`/api/club/${clubSlug}/events/${event.id}`, "PATCH", {
-        status: nextStatus,
-      });
-      setStatus(nextStatus);
+      await requestJson(`/api/club/${clubSlug}/events/${event.id}`, "PATCH", body);
       router.refresh();
     } catch (requestError) {
       setError(errorMessage(requestError));
@@ -175,6 +209,23 @@ function EventPanel({
       setStatusBusy(false);
     }
   }
+
+  async function deleteDraft() {
+    if (!window.confirm(`Permanently delete the unused draft “${event.name}”?`)) return;
+    setStatusBusy(true);
+    setError(null);
+    try {
+      await requestJson(`/api/club/${clubSlug}/events/${event.id}`, "DELETE");
+      router.refresh();
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setStatusBusy(false);
+    }
+  }
+
+  const status = event.status;
+  const isArchived = Boolean(event.archivedAt);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-surface">
@@ -185,6 +236,11 @@ function EventPanel({
             <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">
               {status.replace("_", " ")}
             </span>
+            {isArchived && (
+              <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-violet-300">
+                archived
+              </span>
+            )}
           </div>
           <p className="mt-1 text-sm text-zinc-500">
             {event.venue} · {new Date(event.startsAt).toLocaleString()}
@@ -197,23 +253,65 @@ function EventPanel({
             </Link>
           )}
           {canManage && (
-            <select
-              aria-label={`Status for ${event.name}`}
-              value={status}
-              disabled={statusBusy}
-              onChange={(e) => void changeStatus(e.target.value as EventStatus)}
-              className="rounded-xl border border-border bg-surface-elev px-3 py-2 text-xs uppercase text-zinc-200"
-            >
-              <option value="draft">Draft</option>
-              <option value="on_sale">On sale</option>
-              <option value="sold_out">Sold out</option>
-              <option value="closed">Closed</option>
-            </select>
+            <div className="flex flex-wrap justify-end gap-2">
+              {isArchived ? (
+                <ActionButton disabled={statusBusy} onClick={() => void runLifecycleAction("unarchive")}>
+                  Restore
+                </ActionButton>
+              ) : (
+                <>
+                  {(status === "draft" || status === "closed") && (
+                    <ActionButton disabled={statusBusy} onClick={() => void runLifecycleAction("publish")}>
+                      {status === "closed" ? "Reopen sales" : "Publish"}
+                    </ActionButton>
+                  )}
+                  {(status === "on_sale" || status === "sold_out") && (
+                    <>
+                      <ActionButton
+                        disabled={statusBusy || event.orderCount > 0}
+                        title={event.orderCount > 0 ? "Events with order history must be closed, not unpublished." : undefined}
+                        onClick={() => void runLifecycleAction("unpublish")}
+                      >
+                        Unpublish
+                      </ActionButton>
+                      <ActionButton disabled={statusBusy} onClick={() => void runLifecycleAction("close")}>
+                        Close sales
+                      </ActionButton>
+                    </>
+                  )}
+                  {status === "draft" && event.orderCount === 0 && (
+                    <ActionButton danger disabled={statusBusy} onClick={() => void deleteDraft()}>
+                      Delete draft
+                    </ActionButton>
+                  )}
+                  {status !== "cancelled" && (status !== "draft" || event.orderCount > 0) && (
+                    <ActionButton danger disabled={statusBusy} onClick={() => void runLifecycleAction("cancel")}>
+                      Cancel event
+                    </ActionButton>
+                  )}
+                  {(status === "closed" || status === "cancelled") && (
+                    <ActionButton disabled={statusBusy} onClick={() => void runLifecycleAction("archive")}>
+                      Archive
+                    </ActionButton>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
 
       <div className="p-5">
+        {status === "cancelled" && (
+          <div className="mb-5 rounded-xl border border-red-900/60 bg-red-950/20 p-4 text-sm text-red-200">
+            <p>{event.cancellationReason ?? "This event was cancelled."}</p>
+            {event.refundPendingCount > 0 && (
+              <p className="mt-2 text-xs text-amber-300">
+                {event.refundPendingCount} paid order{event.refundPendingCount === 1 ? "" : "s"} awaiting refund processing.
+              </p>
+            )}
+          </div>
+        )}
         <div className="space-y-3">
           {event.ticketTypes.map((ticketType) => (
             <TicketTypeRow
@@ -228,7 +326,7 @@ function EventPanel({
           )}
         </div>
 
-        {canManage && (
+        {canManage && !isArchived && status !== "cancelled" && (
           <div className="mt-4">
             {addingTicket ? (
               <TicketTypeForm
@@ -250,6 +348,26 @@ function EventPanel({
         )}
       </div>
     </article>
+  );
+}
+
+function ActionButton({
+  children,
+  danger = false,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={`rounded-lg border px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${
+        danger
+          ? "border-red-900/70 text-red-300 hover:bg-red-950/40"
+          : "border-border text-zinc-300 hover:bg-zinc-800"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -482,11 +600,19 @@ function Field({
   );
 }
 
-async function requestJson(url: string, method: "POST" | "PATCH", body: unknown) {
+async function requestJson(
+  url: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: unknown,
+) {
   const response = await fetch(url, {
     method,
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    ...(body === undefined
+      ? {}
+      : {
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -504,6 +630,13 @@ function errorMessage(error: unknown): string {
     admission_type_locked: "Admission type cannot change after this ticket type is created.",
     seat_inventory_locked: "Seat layout cannot change after seats have been reserved or sold.",
     reserved_seat_configuration_required: "Reserved seating needs a section, row, and first seat number.",
+    only_unused_drafts_can_be_deleted: "Only unused draft events can be permanently deleted.",
+    event_has_commerce_history: "This event has order or ticket history and must be retained.",
+    event_is_not_published: "Only a published event can be unpublished.",
+    listed_event_has_order_history: "This event has order history. Close or cancel it instead of unpublishing it.",
+    cancelled_event_is_terminal: "A cancelled event cannot be reopened or published.",
+    close_or_cancel_before_archiving: "Close or cancel this event before archiving it.",
+    inventory_release_invariant_failed: "Ticket inventory could not be released safely. No changes were saved.",
     invalid_body: "Check the form values and try again.",
   };
   return messages[error.message] ?? error.message.replaceAll("_", " ");

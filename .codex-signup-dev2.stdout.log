@@ -1,0 +1,10 @@
+
+> matchpass.xyz@0.1.0 dev
+> next dev --hostname 127.0.0.1
+
+▲ Next.js 16.2.11 (Turbopack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env.local
+✓ Ready in 2.7s
+[?25h

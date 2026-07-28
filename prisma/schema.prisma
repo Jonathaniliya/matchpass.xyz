@@ -12,6 +12,9 @@ enum OrderStatus {
   fulfilled
   expired
   review
+  cancelled
+  refund_pending
+  refunded
 }
 
 enum TicketStatus {
@@ -47,6 +50,7 @@ enum EventStatus {
   on_sale
   sold_out
   closed
+  cancelled
 }
 
 enum AdmissionType {
@@ -141,6 +145,9 @@ model Event {
   startsAt    DateTime
   venue       String
   status      EventStatus  @default(draft)
+  cancelledAt DateTime?
+  cancellationReason String?
+  archivedAt  DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   club        Club         @relation(fields: [clubId], references: [id], onDelete: Restrict)
@@ -149,6 +156,7 @@ model Event {
   tickets     Ticket[]
 
   @@index([clubId, startsAt])
+  @@index([clubId, archivedAt, startsAt])
 }
 
 model TicketType {

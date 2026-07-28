@@ -18,6 +18,11 @@ export default async function ClubDashboardPage({
       where: { clubId: access.clubId },
       include: {
         ticketTypes: { orderBy: [{ isActive: "desc" }, { priceUsdc: "asc" }] },
+        _count: { select: { orders: true } },
+        orders: {
+          where: { status: "refund_pending" },
+          select: { id: true },
+        },
       },
       orderBy: { startsAt: "desc" },
     }),
@@ -38,6 +43,11 @@ export default async function ClubDashboardPage({
     venue: event.venue,
     startsAt: event.startsAt.toISOString(),
     status: event.status,
+    archivedAt: event.archivedAt?.toISOString() ?? null,
+    cancelledAt: event.cancelledAt?.toISOString() ?? null,
+    cancellationReason: event.cancellationReason,
+    orderCount: event._count.orders,
+    refundPendingCount: event.orders.length,
     ticketTypes: event.ticketTypes.map((ticketType) => ({
       id: ticketType.id,
       name: ticketType.name,

@@ -35,7 +35,7 @@ export function SignupForm() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(json.error ?? "Signup failed");
+        setError(signupErrorMessage(json.error));
         return;
       }
       if (json.needsConfirmation) {
@@ -104,6 +104,23 @@ export function SignupForm() {
       </button>
     </form>
   );
+}
+
+function signupErrorMessage(code: unknown): string {
+  const messages: Record<string, string> = {
+    confirmation_email_rate_limited:
+      "Too many confirmation emails were requested. Wait about an hour and try again, or use Google sign-in.",
+    email_already_registered:
+      "An account already uses this email. Log in or reset its password instead.",
+    weak_password: "Choose a stronger password with a mix of letters, numbers, and symbols.",
+    invalid_email: "Enter a valid email address.",
+    email_signup_disabled: "Email and password signup is temporarily unavailable.",
+    invalid_body: "Check the email, display name, and password fields.",
+    signup_failed: "We could not create the account. Try again shortly.",
+  };
+  return typeof code === "string"
+    ? (messages[code] ?? "Signup failed. Try again.")
+    : "Signup failed. Try again.";
 }
 
 function PasswordField({

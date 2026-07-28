@@ -1,21 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/server/auth/supabaseServer";
+import { appOrigin } from "@/lib/server/auth/appOrigin";
 import { forgotPasswordSchema } from "@/lib/shared/schemas/auth";
-
-function appOrigin(request: NextRequest) {
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured) {
-    try {
-      const url = new URL(configured);
-      if (url.protocol === "http:" || url.protocol === "https:") {
-        return url.origin;
-      }
-    } catch {
-      console.warn("password_reset_invalid_app_url");
-    }
-  }
-  return request.nextUrl.origin;
-}
 
 export async function POST(request: NextRequest) {
   const json = await request.json().catch(() => null);

@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import type { AuthError } from "@supabase/supabase-js";
+import { appOrigin } from "@/lib/server/auth/appOrigin";
 import { createSupabaseServerClient } from "@/lib/server/auth/supabaseServer";
 import { prisma } from "@/lib/server/db/prisma";
 import { signupSchema } from "@/lib/shared/schemas/auth";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const json = await req.json().catch(() => null);
   const parsed = signupSchema.safeParse(json);
   if (!parsed.success) {
@@ -12,24 +14,34 @@ export async function POST(req: Request) {
   const { email, password, displayName, favoriteClubId } = parsed.data;
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const emailRedirectTo = new URL("/auth/confirm", appOrigin(req));
+  emailRedirectTo.searchParams.set("next", "/onboarding");
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: emailRedirectTo.toString() },
+  });
   if (error || !data.user) {
-    console.warn("supabase_signup_failed", {
-      email,
-      supabaseError: error?.message,
-      supabaseErrorCode: error?.code,
-      hasUser: !!data?.user,
-      identities: data?.user?.identities?.length ?? null,
-    });
-    const isDuplicate =
-      !error && data?.user && (data.user.identities?.length ?? 0) === 0;
+    console.warn(
+      `supabase_signup_failed ${JSON.stringify({
+        code: error?.code ?? null,
+        status: error?.status ?? null,
+        hasUser: Boolean(data?.user),
+      })}`,
+    );
     return NextResponse.json(
-      {
-        error: isDuplicate
-          ? "email_already_registered"
-          : (error?.message ?? "signup_failed"),
-      },
-      { status: 400 },
+      { error: signupErrorCode(error) },
+      { status: error?.status === 429 ? 429 : 400 },
+    );
+  }
+
+  // Supabase deliberately returns an obfuscated user with no identities when
+  // the email already exists. Treat it as an existing account instead of
+  // telling the browser that another confirmation email was sent.
+  if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return NextResponse.json(
+      { error: "email_already_registered" },
+      { status: 409 },
     );
   }
 
@@ -64,4 +76,22 @@ export async function POST(req: Request) {
       });
 
   return NextResponse.json({ fanId: fan.id, needsConfirmation: false }, { status: 201 });
+}
+
+function signupErrorCode(error: AuthError | null): string {
+  switch (error?.code) {
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return "confirmation_email_rate_limited";
+    case "weak_password":
+      return "weak_password";
+    case "email_address_invalid":
+      return "invalid_email";
+    case "signup_disabled":
+      return "email_signup_disabled";
+    case "user_already_exists":
+      return "email_already_registered";
+    default:
+      return "signup_failed";
+  }
 }

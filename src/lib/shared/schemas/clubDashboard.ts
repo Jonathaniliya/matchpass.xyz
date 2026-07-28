@@ -5,6 +5,17 @@ export const eventStatusSchema = z.enum([
   "on_sale",
   "sold_out",
   "closed",
+  "cancelled",
+]);
+
+export const eventLifecycleSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.enum(["publish", "unpublish", "close", "archive", "unarchive"]),
+  }),
+  z.object({
+    action: z.literal("cancel"),
+    reason: z.string().trim().min(5).max(500),
+  }),
 ]);
 
 export const admissionTypeSchema = z.enum([
@@ -23,7 +34,6 @@ export const createClubEventSchema = z.object(eventFields);
 export const updateClubEventSchema = z
   .object({
     ...eventFields,
-    status: eventStatusSchema,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, {
