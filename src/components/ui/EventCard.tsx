@@ -27,6 +27,7 @@ export function EventCard({
         name={clubName ?? "Club"}
         logoUrl={clubLogoUrl}
         logoEmoji={clubLogoEmoji}
+        fallback="stadium"
         size="md"
       />
       <div className="min-w-0 flex-1">

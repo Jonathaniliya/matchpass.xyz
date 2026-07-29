@@ -15,7 +15,8 @@
     "club:invite-owner": "tsx --env-file=.env.local scripts/invite-club-owner.ts",
     "webhook:replay": "tsx --env-file=.env.local scripts/replay-webhook-event.ts",
     "qr:rederive-hashes": "tsx --env-file=.env.local scripts/rederive-qr-hashes.ts",
-    "email:test": "tsx --env-file=.env.local scripts/test-email.ts"
+    "email:test": "tsx --env-file=.env.local scripts/test-email.ts",
+    "fixtures:premier-league": "tsx --env-file=.env.local scripts/import-premier-league-fixtures.ts"
   },
   "dependencies": {
     "@circle-fin/developer-controlled-wallets": "^10.8.0",

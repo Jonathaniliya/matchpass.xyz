@@ -131,6 +131,7 @@ export default async function Home() {
               startsAt={e.startsAt}
               clubName={e.club.name}
               clubLogoEmoji={e.club.logoEmoji}
+              clubLogoUrl={e.club.logoUrl}
             />
           ))}
         </div>

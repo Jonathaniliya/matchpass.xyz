@@ -114,6 +114,35 @@ For Google sign-in:
 
 Apple sign-in is intentionally deferred.
 
+## Premier League Fixtures
+
+The MVP imports the complete current Premier League season from
+[Football-Data.org](https://www.football-data.org/). Add a provider API key to
+`.env.local`:
+
+```env
+FOOTBALL_DATA_API_KEY=your-key
+# Optional; defaults to the current season's starting year.
+PREMIER_LEAGUE_SEASON=2026
+```
+
+Validate the provider response without changing the database:
+
+```powershell
+npm run fixtures:premier-league -- --dry-run
+```
+
+Import or safely resync all 20 clubs and 380 fixtures:
+
+```powershell
+npm run fixtures:premier-league
+```
+
+New fixtures are drafts. Clubs remain responsible for ticket types, pricing,
+inventory, and publishing. A resync updates only unarchived drafts, so it does
+not silently alter an event that is already on sale or has been closed. Review
+the data provider's licensing terms before using fixture data in production.
+
 ## Club Dashboard
 
 Club access is invitation-only and is stored in `ClubMember`, not in editable

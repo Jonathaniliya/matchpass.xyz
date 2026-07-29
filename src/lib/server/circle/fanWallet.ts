@@ -26,12 +26,28 @@ export async function ensureCircleUser(fanId: string): Promise<void> {
  * challenge on the client. userToken expires in 60 minutes.
  */
 export async function createWalletProvisioningChallenge(fanId: string): Promise<{
-  userToken: string;
-  encryptionKey: string;
-  challengeId: string;
+  wallet?: {
+    walletId: string;
+    address: string;
+    chain: string;
+  };
+  userToken?: string;
+  encryptionKey?: string;
+  challengeId?: string;
 }> {
   await ensureCircleUser(fanId);
+
+  // Recover the common partial-success case: Circle created the wallet but
+  // the callback could not persist it locally (for example, during a brief DB
+  // outage). This keeps retries idempotent and avoids a second PIN setup.
+  const existingWallet = await syncFanWalletFromCircle(fanId);
+  if (existingWallet) {
+    return { wallet: existingWallet };
+  }
+
   const client = getCircleUcwClient();
+  const userResp = await client.getUser({ userId: fanId });
+  const pinStatus = userResp.data?.user?.pinStatus;
 
   const tokenResp = await client.createUserToken({ userId: fanId });
   const userToken = tokenResp.data?.userToken;
@@ -40,11 +56,20 @@ export async function createWalletProvisioningChallenge(fanId: string): Promise<
     throw new Error("Failed to create Circle user token");
   }
 
-  const challengeResp = await client.createUserPinWithWallets({
-    userToken,
-    blockchains: [CIRCLE_CHAIN],
-    accountType: "EOA",
-  });
+  // If PIN setup succeeded previously but wallet creation did not, ask Circle
+  // for a wallet-only challenge. Otherwise initialize PIN and wallet together.
+  const challengeResp =
+    pinStatus === "ENABLED"
+      ? await client.createWallet({
+          userToken,
+          blockchains: [CIRCLE_CHAIN],
+          accountType: "EOA",
+        })
+      : await client.createUserPinWithWallets({
+          userToken,
+          blockchains: [CIRCLE_CHAIN],
+          accountType: "EOA",
+        });
   const challengeId = challengeResp.data?.challengeId;
   if (!challengeId) {
     throw new Error("Failed to create wallet provisioning challenge");

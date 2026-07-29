@@ -157,10 +157,10 @@ export function HeaderAccount({ fan }: Props) {
             </p>
           </div>
 
-          {/* Wallet address */}
+          {/* Wallet deposit address */}
           <div className="mb-4">
             <p className="mb-0.5 text-[10px] uppercase tracking-widest text-zinc-500">
-              UCW wallet address
+              Deposit address
             </p>
             {shortAddress ? (
               <div className="flex items-center gap-2">
@@ -185,6 +185,11 @@ export function HeaderAccount({ fan }: Props) {
                 >
                   visit Profile
                 </Link>
+              </p>
+            )}
+            {shortAddress && (
+              <p className="mt-1.5 text-[11px] leading-4 text-zinc-600">
+                Public for receiving funds. Your PIN and signing keys stay private.
               </p>
             )}
           </div>

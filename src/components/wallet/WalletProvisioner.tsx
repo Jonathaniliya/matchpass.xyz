@@ -33,11 +33,21 @@ export function WalletProvisioner({ wallet }: { wallet: WalletProp }) {
         const j = await initRes.json().catch(() => ({}));
         throw new Error(j.error ?? "init_failed");
       }
-      const { userToken, encryptionKey, challengeId } = (await initRes.json()) as {
-        userToken: string;
-        encryptionKey: string;
-        challengeId: string;
+      const init = (await initRes.json()) as {
+        wallet?: { walletId: string; address: string; chain: string };
+        userToken?: string;
+        encryptionKey?: string;
+        challengeId?: string;
       };
+      if (init.wallet) {
+        router.refresh();
+        setBusy(false);
+        return;
+      }
+      const { userToken, encryptionKey, challengeId } = init;
+      if (!userToken || !encryptionKey || !challengeId) {
+        throw new Error("wallet_challenge_missing");
+      }
 
       // Dynamic import keeps the Web3Services SDK out of the SSR bundle.
       const mod = await import("@circle-fin/w3s-pw-web-sdk");
@@ -68,14 +78,14 @@ export function WalletProvisioner({ wallet }: { wallet: WalletProp }) {
           return;
         }
         try {
-          const syncRes = await fetch("/api/wallet/sync", { method: "POST" });
-          if (!syncRes.ok) {
-            const j = await syncRes.json().catch(() => ({}));
-            throw new Error(j.error ?? "sync_failed");
-          }
+          await syncWalletWithRetry();
           router.refresh();
         } catch (e) {
-          setError(e instanceof Error ? e.message : "sync_failed");
+          setError(
+            e instanceof Error
+              ? e.message
+              : "Your wallet was created, but MatchPass could not sync it yet. Try again to recover it.",
+          );
         } finally {
           setBusy(false);
         }
@@ -90,14 +100,15 @@ export function WalletProvisioner({ wallet }: { wallet: WalletProp }) {
     return (
       <div className="space-y-1 text-sm text-zinc-200">
         <p>
-          <span className="text-zinc-500">Address:</span>{" "}
+          <span className="text-zinc-500">Deposit address:</span>{" "}
           <span className="font-mono">{truncate(wallet.address)}</span>
         </p>
         <p>
           <span className="text-zinc-500">Chain:</span> {wallet.chain}
         </p>
         <p className="mt-2 text-xs text-zinc-500">
-          Funds sent to this address can be used to pay for tickets directly.
+          This public address receives funds. Your PIN and signing keys are never
+          exposed to MatchPass.
         </p>
       </div>
     );
@@ -119,5 +130,28 @@ export function WalletProvisioner({ wallet }: { wallet: WalletProp }) {
       </button>
       {error && <p className="text-sm text-red-400">{error}</p>}
     </div>
+  );
+}
+
+async function syncWalletWithRetry() {
+  const delays = [0, 500, 1_000, 2_000, 3_500];
+  let lastError = "wallet_sync_failed";
+
+  for (const delay of delays) {
+    if (delay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+    const response = await fetch("/api/wallet/sync", { method: "POST" });
+    if (response.ok) return;
+
+    const body = await response.json().catch(() => ({}));
+    lastError = typeof body.error === "string" ? body.error : lastError;
+    if (response.status !== 404) break;
+  }
+
+  throw new Error(
+    lastError === "no_wallet_yet"
+      ? "Your wallet was created, but Circle is still syncing it. Try Set up again in a moment to recover it."
+      : "Your wallet was created, but MatchPass could not save it yet. Try Set up again to recover it.",
   );
 }
