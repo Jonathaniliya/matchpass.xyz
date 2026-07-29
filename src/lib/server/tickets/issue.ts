@@ -16,7 +16,12 @@ export async function issueTicketsForOrder(
     where: { id: orderId },
     include: {
       event: true,
-      items: { include: { ticketType: true, seats: { orderBy: { sortOrder: "asc" } } } },
+      items: {
+        include: {
+          ticketType: { include: { ticketArea: true } },
+          seats: { orderBy: { sortOrder: "asc" } },
+        },
+      },
     },
   });
   if (!order) throw new Error(`order_not_found:${orderId}`);
@@ -28,7 +33,8 @@ export async function issueTicketsForOrder(
   const issued: IssuedTicket[] = [];
 
   for (const item of order.items) {
-    const admissionType = item.admissionType ?? item.ticketType.admissionType;
+    const area = item.ticketType.ticketArea;
+    const admissionType = item.admissionType ?? area.admissionType;
     if (
       admissionType === "reserved_seating" &&
       item.seats.length !== item.quantity
@@ -38,6 +44,13 @@ export async function issueTicketsForOrder(
 
     await tx.ticketType.update({
       where: { id: item.ticketTypeId },
+      data: {
+        quantityReserved: { decrement: item.quantity },
+        quantitySold: { increment: item.quantity },
+      },
+    });
+    await tx.ticketArea.update({
+      where: { id: area.id },
       data: {
         quantityReserved: { decrement: item.quantity },
         quantitySold: { increment: item.quantity },
@@ -55,12 +68,12 @@ export async function issueTicketsForOrder(
           seatId: seat?.id ?? null,
           ticketTypeName: item.ticketTypeName ?? item.ticketType.name,
           admissionType,
-          sectionLabel: seat?.sectionLabel ?? item.sectionLabel ?? item.ticketType.sectionLabel,
-          rowLabel: seat?.rowLabel ?? item.rowLabel ?? item.ticketType.rowLabel,
+          sectionLabel: seat?.sectionLabel ?? item.sectionLabel ?? area.sectionLabel,
+          rowLabel: seat?.rowLabel ?? item.rowLabel ?? area.rowLabel,
           seatLabel: seat?.seatNumber ?? null,
-          entranceLabel: item.entranceLabel ?? item.ticketType.entranceLabel,
+          entranceLabel: item.entranceLabel ?? area.entranceLabel,
           accessInstructions:
-            item.accessInstructions ?? item.ticketType.accessInstructions,
+            item.accessInstructions ?? area.accessInstructions,
           isTransferable: item.isTransferable,
         },
       });

@@ -84,8 +84,9 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
         throw new LifecycleError("event_has_commerce_history", 409);
       }
 
-      await tx.ticketSeat.deleteMany({ where: { ticketType: { eventId } } });
+      await tx.ticketSeat.deleteMany({ where: { ticketArea: { eventId } } });
       await tx.ticketType.deleteMany({ where: { eventId } });
+      await tx.ticketArea.deleteMany({ where: { eventId } });
       await tx.event.delete({ where: { id: eventId } });
     });
     return new NextResponse(null, { status: 204 });
@@ -130,6 +131,7 @@ async function applyLifecycleAction(
           eventId,
           isActive: true,
           quantityTotal: { gt: 0 },
+          ticketArea: { isActive: true, quantityTotal: { gt: 0 } },
         },
       });
       if (availableTypes === 0) {
@@ -197,13 +199,16 @@ async function applyLifecycleAction(
 
     const pendingOrders = await tx.order.findMany({
       where: { eventId, status: "pending" },
-      include: { items: true },
+      include: { items: { include: { ticketType: { select: { ticketAreaId: true } } } } },
       orderBy: { id: "asc" },
     });
     const itemIds = pendingOrders.flatMap((order) => order.items.map((item) => item.id));
     const releases = new Map<string, number>();
+    const areaReleases = new Map<string, number>();
     for (const item of pendingOrders.flatMap((order) => order.items)) {
       releases.set(item.ticketTypeId, (releases.get(item.ticketTypeId) ?? 0) + item.quantity);
+      const areaId = item.ticketType.ticketAreaId;
+      areaReleases.set(areaId, (areaReleases.get(areaId) ?? 0) + item.quantity);
     }
 
     await tx.order.updateMany({
@@ -219,6 +224,15 @@ async function applyLifecycleAction(
     for (const [ticketTypeId, quantity] of [...releases].sort(([a], [b]) => a.localeCompare(b))) {
       const released = await tx.ticketType.updateMany({
         where: { id: ticketTypeId, quantityReserved: { gte: quantity } },
+        data: { quantityReserved: { decrement: quantity } },
+      });
+      if (released.count !== 1) {
+        throw new LifecycleError("inventory_release_invariant_failed", 500);
+      }
+    }
+    for (const [ticketAreaId, quantity] of [...areaReleases].sort(([a], [b]) => a.localeCompare(b))) {
+      const released = await tx.ticketArea.updateMany({
+        where: { id: ticketAreaId, quantityReserved: { gte: quantity } },
         data: { quantityReserved: { decrement: quantity } },
       });
       if (released.count !== 1) {

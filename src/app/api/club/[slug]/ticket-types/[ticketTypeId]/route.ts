@@ -49,48 +49,10 @@ export async function PATCH(
   }
 
   if (
-    parsed.data.admissionType !== undefined &&
-    parsed.data.admissionType !== ticketType.admissionType
+    parsed.data.ticketAreaId !== undefined &&
+    parsed.data.ticketAreaId !== ticketType.ticketAreaId
   ) {
-    return NextResponse.json(
-      { error: "admission_type_locked" },
-      { status: 409 },
-    );
-  }
-
-  const sectionLabel =
-    parsed.data.sectionLabel === undefined
-      ? ticketType.sectionLabel
-      : parsed.data.sectionLabel;
-  const rowLabel =
-    parsed.data.rowLabel === undefined ? ticketType.rowLabel : parsed.data.rowLabel;
-  const seatStartNumber =
-    parsed.data.seatStartNumber === undefined
-      ? ticketType.seatStartNumber
-      : parsed.data.seatStartNumber;
-  const reservedStructureChanged =
-    ticketType.admissionType === "reserved_seating" &&
-    (quantityTotal !== ticketType.quantityTotal ||
-      sectionLabel !== ticketType.sectionLabel ||
-      rowLabel !== ticketType.rowLabel ||
-      seatStartNumber !== ticketType.seatStartNumber);
-  if (
-    reservedStructureChanged &&
-    ticketType.quantityReserved + ticketType.quantitySold > 0
-  ) {
-    return NextResponse.json(
-      { error: "seat_inventory_locked" },
-      { status: 409 },
-    );
-  }
-  if (
-    ticketType.admissionType === "reserved_seating" &&
-    (!sectionLabel || !rowLabel || !seatStartNumber)
-  ) {
-    return NextResponse.json(
-      { error: "reserved_seat_configuration_required" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "ticket_area_locked" }, { status: 409 });
   }
 
   const salesStartAt =
@@ -117,15 +79,6 @@ export async function PATCH(
         ...(parsed.data.description !== undefined
           ? { description: parsed.data.description }
           : {}),
-        ...(parsed.data.sectionLabel !== undefined ? { sectionLabel } : {}),
-        ...(parsed.data.rowLabel !== undefined ? { rowLabel } : {}),
-        ...(parsed.data.seatStartNumber !== undefined ? { seatStartNumber } : {}),
-        ...(parsed.data.entranceLabel !== undefined
-          ? { entranceLabel: parsed.data.entranceLabel }
-          : {}),
-        ...(parsed.data.accessInstructions !== undefined
-          ? { accessInstructions: parsed.data.accessInstructions }
-          : {}),
         ...(parsed.data.isTransferable !== undefined
           ? { isTransferable: parsed.data.isTransferable }
           : {}),
@@ -144,23 +97,6 @@ export async function PATCH(
       },
       select: { id: true },
     });
-
-    if (reservedStructureChanged) {
-      await tx.ticketSeat.deleteMany({ where: { ticketTypeId } });
-      await tx.ticketSeat.createMany({
-        data: Array.from({ length: quantityTotal }, (_, index) => {
-          const seatNumber = String((seatStartNumber ?? 1) + index);
-          return {
-            ticketTypeId,
-            label: `${sectionLabel} · Row ${rowLabel} · Seat ${seatNumber}`,
-            sectionLabel,
-            rowLabel,
-            seatNumber,
-            sortOrder: index,
-          };
-        }),
-      });
-    }
 
     return result;
   });

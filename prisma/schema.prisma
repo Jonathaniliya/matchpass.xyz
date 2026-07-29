@@ -152,6 +152,7 @@ model Event {
   updatedAt   DateTime     @updatedAt
   club        Club         @relation(fields: [clubId], references: [id], onDelete: Restrict)
   ticketTypes TicketType[]
+  ticketAreas TicketArea[]
   orders      Order[]
   tickets     Ticket[]
 
@@ -162,14 +163,9 @@ model Event {
 model TicketType {
   id                 String        @id @default(cuid())
   eventId            String
+  ticketAreaId       String
   name               String
   description        String?
-  admissionType      AdmissionType @default(general_admission)
-  sectionLabel       String?
-  rowLabel           String?
-  seatStartNumber    Int?
-  entranceLabel      String?
-  accessInstructions String?
   isTransferable     Boolean       @default(false)
   priceUsdc          Decimal       @db.Decimal(18, 6)
   quantityTotal      Int
@@ -182,10 +178,35 @@ model TicketType {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   event              Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  ticketArea         TicketArea    @relation(fields: [ticketAreaId], references: [id], onDelete: Restrict)
   orderItems         OrderItem[]
-  seats              TicketSeat[]
 
   @@index([eventId])
+  @@index([ticketAreaId])
+}
+
+model TicketArea {
+  id                 String        @id @default(cuid())
+  eventId            String
+  name               String
+  admissionType      AdmissionType @default(general_admission)
+  sectionLabel       String?
+  rowLabel           String?
+  seatStartNumber    Int?
+  entranceLabel      String?
+  accessInstructions String?
+  quantityTotal      Int
+  quantityReserved   Int           @default(0)
+  quantitySold       Int           @default(0)
+  maxPerOrder        Int           @default(8)
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  event              Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  ticketTypes        TicketType[]
+  seats              TicketSeat[]
+
+  @@index([eventId, isActive])
 }
 
 model Fan {
@@ -324,7 +345,7 @@ model Ticket {
 
 model TicketSeat {
   id           String           @id @default(cuid())
-  ticketTypeId String
+  ticketAreaId String
   orderItemId  String?
   label        String
   sectionLabel String?
@@ -334,12 +355,12 @@ model TicketSeat {
   status       TicketSeatStatus @default(available)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
-  ticketType   TicketType       @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
+  ticketArea   TicketArea       @relation(fields: [ticketAreaId], references: [id], onDelete: Restrict)
   orderItem    OrderItem?       @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   ticket       Ticket?
 
-  @@unique([ticketTypeId, label])
-  @@index([ticketTypeId, status, sortOrder])
+  @@unique([ticketAreaId, label])
+  @@index([ticketAreaId, status, sortOrder])
   @@index([orderItemId])
 }
 

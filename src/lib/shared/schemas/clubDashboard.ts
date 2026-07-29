@@ -51,15 +51,38 @@ const priceUsdcSchema = z
 const nullableDateTimeSchema = z.string().datetime().nullable();
 const nullableLabelSchema = z.string().trim().min(1).max(80).nullable();
 
-const ticketTypeFields = {
-  name: z.string().trim().min(2).max(80),
-  description: z.string().trim().max(240).nullable(),
+const ticketAreaFields = {
+  name: z.string().trim().min(2).max(100),
   admissionType: admissionTypeSchema,
   sectionLabel: nullableLabelSchema,
   rowLabel: nullableLabelSchema,
   seatStartNumber: z.number().int().min(1).max(1_000_000).nullable(),
   entranceLabel: nullableLabelSchema,
   accessInstructions: z.string().trim().max(500).nullable(),
+  quantityTotal: z.number().int().min(1).max(1_000_000),
+  maxPerOrder: z.number().int().min(1).max(50),
+  isActive: z.boolean(),
+};
+
+export const createTicketAreaSchema = z
+  .object(ticketAreaFields)
+  .superRefine((value, context) => {
+    validateReservedSeatConfiguration(value, context);
+  });
+
+export const updateTicketAreaSchema = z
+  .object(ticketAreaFields)
+  .partial()
+  .superRefine((value, context) => {
+    if (Object.keys(value).length === 0) {
+      context.addIssue({ code: "custom", message: "At least one field is required." });
+    }
+  });
+
+const ticketTypeFields = {
+  ticketAreaId: z.string().min(1),
+  name: z.string().trim().min(2).max(80),
+  description: z.string().trim().max(240).nullable(),
   isTransferable: z.boolean(),
   priceUsdc: priceUsdcSchema,
   quantityTotal: z.number().int().min(1).max(1_000_000),
@@ -73,7 +96,6 @@ export const createTicketTypeSchema = z
   .object(ticketTypeFields)
   .superRefine((value, context) => {
     validateSalesWindow(value, context);
-    validateReservedSeatConfiguration(value, context);
   });
 
 export const updateTicketTypeSchema = z
@@ -106,13 +128,13 @@ function validateReservedSeatConfiguration(
     sectionLabel: string | null;
     rowLabel: string | null;
     seatStartNumber: number | null;
-    quantityTotal?: number;
+    quantityTotal: number;
   },
   context: z.RefinementCtx,
 ) {
   if (value.admissionType !== "reserved_seating") return;
 
-  if (typeof value.quantityTotal === "number" && value.quantityTotal > 10_000) {
+  if (value.quantityTotal > 10_000) {
     context.addIssue({
       code: "custom",
       path: ["quantityTotal"],

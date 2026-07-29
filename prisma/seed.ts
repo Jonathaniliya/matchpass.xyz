@@ -323,13 +323,58 @@ async function main() {
       },
     });
     for (const tt of e.ticketTypes) {
+      const reservedSeating = tt.id.endsWith("-seat");
+      const ticketAreaId = `area-${tt.id}`;
+      await prisma.ticketArea.upsert({
+        where: { id: ticketAreaId },
+        update: {
+          name: tt.name,
+          admissionType: reservedSeating ? "reserved_seating" : "general_admission",
+          sectionLabel: tt.name,
+          rowLabel: reservedSeating ? "A" : null,
+          seatStartNumber: reservedSeating ? 1 : null,
+          quantityTotal: tt.quantityTotal,
+        },
+        create: {
+          id: ticketAreaId,
+          eventId: e.id,
+          name: tt.name,
+          admissionType: reservedSeating ? "reserved_seating" : "general_admission",
+          sectionLabel: tt.name,
+          rowLabel: reservedSeating ? "A" : null,
+          seatStartNumber: reservedSeating ? 1 : null,
+          quantityTotal: tt.quantityTotal,
+          ...(reservedSeating
+            ? {
+                seats: {
+                  create: Array.from({ length: tt.quantityTotal }, (_, index) => {
+                    const seatNumber = String(index + 1);
+                    return {
+                      label: `${tt.name} · Row A · Seat ${seatNumber}`,
+                      sectionLabel: tt.name,
+                      rowLabel: "A",
+                      seatNumber,
+                      sortOrder: index,
+                    };
+                  }),
+                },
+              }
+            : {}),
+        },
+      });
       await prisma.ticketType.upsert({
         where: { id: tt.id },
-        update: { name: tt.name, priceUsdc: tt.priceUsdc, quantityTotal: tt.quantityTotal },
+        update: {
+          ticketAreaId,
+          name: "Adult",
+          priceUsdc: tt.priceUsdc,
+          quantityTotal: tt.quantityTotal,
+        },
         create: {
           id: tt.id,
           eventId: e.id,
-          name: tt.name,
+          ticketAreaId,
+          name: "Adult",
           priceUsdc: tt.priceUsdc,
           quantityTotal: tt.quantityTotal,
         },

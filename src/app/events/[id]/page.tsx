@@ -18,11 +18,13 @@ export default async function EventPage({
         ticketTypes: {
           where: {
             isActive: true,
+            ticketArea: { isActive: true },
             AND: [
               { OR: [{ salesStartAt: null }, { salesStartAt: { lte: now } }] },
               { OR: [{ salesEndAt: null }, { salesEndAt: { gt: now } }] },
             ],
           },
+          include: { ticketArea: true },
           orderBy: { priceUsdc: "asc" },
         },
       },
@@ -50,51 +52,32 @@ export default async function EventPage({
           })}
         </p>
 
-        <section className="mt-8 space-y-3">
-          {event.ticketTypes.map((tt) => {
-            const remaining = tt.quantityTotal - tt.quantityReserved - tt.quantitySold;
-            return (
-              <div
-                key={tt.id}
-                className="rounded-2xl border border-border bg-surface p-5"
-              >
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-lg font-medium">{tt.name}</h3>
-                  <p className="font-mono text-lg">
-                    {tt.priceUsdc.toString()} <span className="text-sm text-zinc-400">USDC</span>
-                  </p>
-                </div>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {remaining > 0 ? `${remaining} remaining` : "Sold out"}
-                </p>
-                <p className="mt-2 text-sm text-zinc-400">
-                  {tt.admissionType === "reserved_seating"
-                    ? `${tt.sectionLabel} · Row ${tt.rowLabel} · seat assigned at checkout`
-                    : tt.sectionLabel ?? "General admission"}
-                  {tt.entranceLabel ? ` · ${tt.entranceLabel}` : ""}
-                </p>
-                {tt.description && (
-                  <p className="mt-1 text-xs leading-5 text-zinc-500">{tt.description}</p>
-                )}
-              </div>
-            );
-          })}
-        </section>
-
         <section className="mt-8">
           <EventBuyForm
             eventId={event.id}
             isGuest={!fan}
             ticketTypes={event.ticketTypes.map((t) => ({
               id: t.id,
+              ticketAreaId: t.ticketAreaId,
               name: t.name,
+              description: t.description,
               priceUsdc: t.priceUsdc.toString(),
               remaining: t.quantityTotal - t.quantityReserved - t.quantitySold,
               maxPerOrder: t.maxPerOrder,
-              admissionType: t.admissionType,
-              sectionLabel: t.sectionLabel,
-              rowLabel: t.rowLabel,
-              entranceLabel: t.entranceLabel,
+              area: {
+                id: t.ticketArea.id,
+                name: t.ticketArea.name,
+                remaining:
+                  t.ticketArea.quantityTotal -
+                  t.ticketArea.quantityReserved -
+                  t.ticketArea.quantitySold,
+                maxPerOrder: t.ticketArea.maxPerOrder,
+                admissionType: t.ticketArea.admissionType,
+                sectionLabel: t.ticketArea.sectionLabel,
+                rowLabel: t.ticketArea.rowLabel,
+                entranceLabel: t.ticketArea.entranceLabel,
+                accessInstructions: t.ticketArea.accessInstructions,
+              },
             }))}
           />
         </section>

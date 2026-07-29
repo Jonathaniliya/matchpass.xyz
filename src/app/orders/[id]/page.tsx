@@ -12,6 +12,17 @@ type OrderStatusResponse = {
   expiresAt: string;
   paidAt: string | null;
   fulfilledAt: string | null;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    unitPriceUsdc: string;
+    admissionType: "general_admission" | "reserved_seating" | null;
+    sectionLabel: string | null;
+    rowLabel: string | null;
+    entranceLabel: string | null;
+    seats: string[];
+  }>;
 };
 
 export default function OrderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -158,6 +169,40 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </section>
           </>
         )}
+
+        <section className="mt-6 rounded-2xl border border-border bg-surface p-5">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-cyan-300">
+            Your held tickets
+          </p>
+          <div className="mt-4 space-y-4">
+            {order.items.map((item) => (
+              <div key={item.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-medium">{item.name} × {item.quantity}</p>
+                  <p className="font-mono text-sm text-zinc-300">
+                    {(Number(item.unitPriceUsdc) * item.quantity).toFixed(2)} USDC
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {item.admissionType === "reserved_seating"
+                    ? `${item.sectionLabel} · Row ${item.rowLabel}`
+                    : item.sectionLabel ?? "General admission"}
+                  {item.entranceLabel ? ` · ${item.entranceLabel}` : ""}
+                </p>
+                {item.seats.length > 0 && (
+                  <p className="mt-2 rounded-lg border border-cyan-900/60 bg-cyan-950/25 px-3 py-2 text-xs leading-5 text-cyan-100">
+                    Assigned: {item.seats.join(" · ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          {order.status === "pending" && !isExpired && (
+            <p className="mt-4 text-xs leading-5 text-zinc-500">
+              These tickets are held until the countdown expires. Send the exact USDC amount above to confirm them.
+            </p>
+          )}
+        </section>
 
         {order.status === "review" && (
           <p className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
