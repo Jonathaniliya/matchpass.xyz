@@ -33,6 +33,7 @@ yarn-error.log*
 
 # agent tooling (machine-local; .mcp.json IS shared, its local opt-in is not)
 .claude/settings.local.json
+.codex-*
 .codex/
 
 # env files (can opt-in for committing if needed)
