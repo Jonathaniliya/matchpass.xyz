@@ -80,7 +80,6 @@ export const updateTicketAreaSchema = z
   });
 
 const ticketTypeFields = {
-  ticketAreaId: z.string().min(1),
   name: z.string().trim().min(2).max(80),
   description: z.string().trim().max(240).nullable(),
   isTransferable: z.boolean(),
@@ -93,7 +92,7 @@ const ticketTypeFields = {
 };
 
 export const createTicketTypeSchema = z
-  .object(ticketTypeFields)
+  .object({ ticketAreaId: z.string().min(1), ...ticketTypeFields })
   .superRefine((value, context) => {
     validateSalesWindow(value, context);
   });

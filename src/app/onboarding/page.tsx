@@ -3,6 +3,7 @@ import { prisma } from "@/lib/server/db/prisma";
 import { requireFan } from "@/lib/server/auth/requireFan";
 import { OnboardingPicker } from "./OnboardingPicker";
 import type { FeaturedClub } from "@/components/ui/FavoriteTeamsModal";
+import { getClubBadgeUrl } from "@/lib/shared/clubBadges";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function OnboardingPage() {
     id: c.id,
     name: c.name,
     logoEmoji: c.logoEmoji,
-    logoUrl: c.logoUrl,
+    logoUrl: getClubBadgeUrl(c.slug, c.logoUrl),
     league: c.league
       ? { name: c.league.name, slug: c.league.slug, country: c.league.country }
       : null,
