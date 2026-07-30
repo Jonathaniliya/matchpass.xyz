@@ -19,7 +19,6 @@ export function HeaderAccount({ fan }: Props) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loadingBalance, setLoadingBalance] = useState(true);
-  const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -63,21 +62,6 @@ export function HeaderAccount({ fan }: Props) {
     showBalance && balanceLabel
       ? balanceLabel
       : (fan.displayName ?? fan.email);
-
-  async function copyAddress() {
-    if (!walletAddress) return;
-    try {
-      await navigator.clipboard.writeText(walletAddress);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard may not be available */
-    }
-  }
-
-  const shortAddress = walletAddress
-    ? `${walletAddress.slice(0, 8)}…${walletAddress.slice(-6)}`
-    : null;
 
   return (
     <div ref={dropdownRef} className="relative flex items-center gap-1">
@@ -155,43 +139,6 @@ export function HeaderAccount({ fan }: Props) {
             <p className="break-all text-sm font-medium text-zinc-200">
               {fan.email}
             </p>
-          </div>
-
-          {/* Wallet deposit address */}
-          <div className="mb-4">
-            <p className="mb-0.5 text-[10px] uppercase tracking-widest text-zinc-500">
-              Deposit address
-            </p>
-            {shortAddress ? (
-              <div className="flex items-center gap-2">
-                <p className="font-mono text-xs text-zinc-300">
-                  {shortAddress}
-                </p>
-                <button
-                  type="button"
-                  onClick={copyAddress}
-                  className="text-xs text-zinc-500 transition-colors hover:text-zinc-200"
-                >
-                  {copied ? "✓ Copied" : "Copy"}
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-zinc-500">
-                Not set up yet —{" "}
-                <Link
-                  href="/profile"
-                  className="text-cyan-400 hover:underline"
-                  onClick={() => setOpen(false)}
-                >
-                  visit Profile
-                </Link>
-              </p>
-            )}
-            {shortAddress && (
-              <p className="mt-1.5 text-[11px] leading-4 text-zinc-600">
-                Public for receiving funds. Your PIN and signing keys stay private.
-              </p>
-            )}
           </div>
 
           {/* Balances */}

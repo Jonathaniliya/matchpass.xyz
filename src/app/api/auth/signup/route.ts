@@ -22,8 +22,10 @@ export async function POST(req: NextRequest) {
     options: { emailRedirectTo: emailRedirectTo.toString() },
   });
   if (error || !data.user) {
+    const errorCode = signupErrorCode(error);
+    const outcomeUncertain = errorCode === "signup_status_uncertain";
     console.warn(
-      `supabase_signup_failed ${JSON.stringify({
+      `${outcomeUncertain ? "supabase_signup_outcome_uncertain" : "supabase_signup_failed"} ${JSON.stringify({
         hasError: Boolean(error),
         name: error?.name ?? null,
         code: error?.code ?? null,
@@ -31,8 +33,23 @@ export async function POST(req: NextRequest) {
         hasUser: Boolean(data?.user),
       })}`,
     );
+
+    // Supabase can accept the signup and queue the confirmation email before
+    // the response is interrupted. Do not present that indeterminate outcome
+    // as a failed account creation or encourage an immediate duplicate retry.
+    if (outcomeUncertain) {
+      return NextResponse.json(
+        {
+          fanId: null,
+          needsConfirmation: true,
+          confirmationStatus: "uncertain",
+        },
+        { status: 202 },
+      );
+    }
+
     return NextResponse.json(
-      { error: signupErrorCode(error) },
+      { error: errorCode },
       { status: error?.status === 429 ? 429 : 400 },
     );
   }
@@ -81,13 +98,6 @@ export async function POST(req: NextRequest) {
 }
 
 function signupErrorCode(error: AuthError | null): string {
-  // A transport failure can happen after Supabase has accepted the signup and
-  // sent the confirmation email. Treat that outcome as uncertain so the UI
-  // does not incorrectly tell the user that no account was created.
-  if (error && !error.code && !error.status) {
-    return "signup_status_uncertain";
-  }
-
   switch (error?.code) {
     case "over_email_send_rate_limit":
     case "over_request_rate_limit":
@@ -101,6 +111,8 @@ function signupErrorCode(error: AuthError | null): string {
     case "user_already_exists":
       return "email_already_registered";
     default:
-      return "signup_failed";
+      // Unknown Auth and transport errors can arrive after Supabase accepted
+      // the signup and queued the confirmation email.
+      return error ? "signup_status_uncertain" : "signup_failed";
   }
 }

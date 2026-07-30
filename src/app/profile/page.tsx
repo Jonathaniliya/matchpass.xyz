@@ -3,11 +3,31 @@ import { requireFan } from "@/lib/server/auth/requireFan";
 import { prisma } from "@/lib/server/db/prisma";
 import { ProfileForm, type ClubOption } from "./ProfileForm";
 import { WalletProvisioner } from "@/components/wallet/WalletProvisioner";
+import { syncFanWalletFromCircle } from "@/lib/server/circle/fanWallet";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const fan = await requireFan();
+
+  const localWallet = await prisma.fanCircleWallet.findUnique({
+    where: { fanId: fan.id },
+    select: { id: true },
+  });
+  if (!localWallet) {
+    try {
+      // Recover wallets whose Circle challenge completed before the wallet
+      // became visible to the original sync request.
+      await syncFanWalletFromCircle(fan.id);
+    } catch (error) {
+      // A fan who has not started Circle setup yet has nothing to reconcile.
+      // Keep Profile available and let the explicit setup flow handle it.
+      console.warn("fan_wallet_reconciliation_deferred", {
+        fanId: fan.id,
+        error: error instanceof Error ? error.message : "unknown_error",
+      });
+    }
+  }
 
   const [fullFan, clubs, orders] = await Promise.all([
     prisma.fan.findUnique({
@@ -71,7 +91,8 @@ export default async function ProfilePage() {
 
         <div className="mt-4 rounded-2xl border border-border bg-surface p-6">
           <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
-            Wallet
+            Personal wallet{" "}
+            <span className="normal-case text-zinc-600">(optional)</span>
           </h2>
           <div className="mt-3">
             <WalletProvisioner

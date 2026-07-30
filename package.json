@@ -12,6 +12,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "circle:provision-clubs": "tsx --env-file=.env.local scripts/provision-club-circle-accounts.ts",
+    "circle:reconcile-fan-wallets": "tsx --env-file=.env.local scripts/reconcile-fan-circle-wallets.ts",
     "club:invite-owner": "tsx --env-file=.env.local scripts/invite-club-owner.ts",
     "webhook:replay": "tsx --env-file=.env.local scripts/replay-webhook-event.ts",
     "qr:rederive-hashes": "tsx --env-file=.env.local scripts/rederive-qr-hashes.ts",

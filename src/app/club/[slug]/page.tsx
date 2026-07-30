@@ -99,18 +99,9 @@ export default async function ClubDashboardPage({
               {access.club.name}
             </h1>
           </div>
-          <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
+          <div className="text-xs uppercase tracking-wide text-zinc-400">
             <span className="rounded-full border border-border px-3 py-1.5">
               {access.role.replace("_", " ")}
-            </span>
-            <span
-              className={`rounded-full px-3 py-1.5 ${
-                access.club.circleAccount
-                  ? "bg-emerald-500/15 text-emerald-400"
-                  : "bg-amber-500/15 text-amber-300"
-              }`}
-            >
-              {access.club.circleAccount ? "Wallet ready" : "Wallet pending"}
             </span>
           </div>
         </div>

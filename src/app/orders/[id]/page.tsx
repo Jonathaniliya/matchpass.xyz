@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QrCodeImg } from "@/components/ui/QrCodeImg";
+import { FanWalletPayment } from "@/components/wallet/FanWalletPayment";
 
 type OrderStatusResponse = {
   orderId: string;
@@ -143,7 +144,19 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               )}
             </p>
 
-            <section className="mt-6 flex flex-col items-center gap-4 rounded-3xl border border-border bg-surface p-6">
+            <FanWalletPayment
+              orderId={order.orderId}
+              amountUsdc={order.totalUsdc}
+              disabled={isExpired}
+            />
+
+            <div className="mt-6 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+              <span className="h-px flex-1 bg-border" />
+              Or pay from another wallet
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <section className="mt-4 flex flex-col items-center gap-4 rounded-3xl border border-border bg-surface p-6">
               <QrCodeImg value={arcPayUri} size={224} />
               <div className="w-full">
                 <p className="text-xs uppercase tracking-wide text-zinc-400">Deposit address</p>

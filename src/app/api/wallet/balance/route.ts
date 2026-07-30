@@ -1,52 +1,50 @@
 import { NextResponse } from "next/server";
-import { requireFan } from "@/lib/server/auth/requireFan";
-import { prisma } from "@/lib/server/db/prisma";
+import { getCurrentFan } from "@/lib/server/auth/requireFan";
+import { getFanUsdcWallet } from "@/lib/server/circle/fanTransfers";
 
-type CircleTokenBalance = {
-  token: { name: string; symbol: string; decimals: number };
-  amount: string;
-  updateDate: string;
-};
+export const runtime = "nodejs";
 
 export async function GET() {
-  const fan = await requireFan();
-
-  const wallet = await prisma.fanCircleWallet.findUnique({
-    where: { fanId: fan.id },
-    select: { walletId: true, address: true, chain: true },
-  });
-
-  if (!wallet) {
-    return NextResponse.json({ address: null, balances: [] });
+  const fan = await getCurrentFan();
+  if (!fan) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   try {
-    const baseUrl = process.env.CIRCLE_BASE_URL ?? "https://api.circle.com";
-    const apiKey = process.env.CIRCLE_API_KEY;
-    if (!apiKey) throw new Error("CIRCLE_API_KEY not set");
-
-    const resp = await fetch(
-      `${baseUrl}/v1/w3s/wallets/${wallet.walletId}/balances`,
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      },
-    );
-
-    if (!resp.ok) {
-      return NextResponse.json({ address: wallet.address, balances: [] });
+    const wallet = await getFanUsdcWallet(fan.id);
+    if (!wallet) {
+      return NextResponse.json({
+        address: null,
+        chain: null,
+        balances: [],
+        usdc: null,
+      });
     }
 
-    const data = await resp.json();
-    const balances = (
-      (data?.data?.tokenBalances as CircleTokenBalance[]) ?? []
-    ).map((b) => ({ symbol: b.token.symbol, amount: b.amount }));
+    const usdc = wallet.balance
+      ? {
+          symbol: wallet.balance.symbol,
+          amount: wallet.balance.amount,
+          tokenId: wallet.balance.tokenId,
+          tokenAddress: wallet.balance.tokenAddress,
+          decimals: wallet.balance.decimals,
+        }
+      : null;
 
-    return NextResponse.json({ address: wallet.address, balances });
-  } catch {
-    return NextResponse.json({ address: wallet.address, balances: [] });
+    return NextResponse.json({
+      address: wallet.address,
+      chain: wallet.chain,
+      balances: usdc ? [{ symbol: usdc.symbol, amount: usdc.amount }] : [],
+      usdc,
+    });
+  } catch (error) {
+    console.error("fan_wallet_balance_failed", {
+      fanId: fan.id,
+      error: error instanceof Error ? error.message : "unknown_error",
+    });
+    return NextResponse.json(
+      { error: "wallet_balance_unavailable" },
+      { status: 502 },
+    );
   }
 }

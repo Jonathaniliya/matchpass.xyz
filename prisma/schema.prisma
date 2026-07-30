@@ -76,6 +76,11 @@ enum ClubMemberRole {
   gate
 }
 
+enum FanWalletTransferPurpose {
+  withdrawal
+  order_payment
+}
+
 model League {
   id        String   @id @default(cuid())
   name      String
@@ -139,47 +144,47 @@ model ClubCircleAccount {
 }
 
 model Event {
-  id          String       @id @default(cuid())
-  clubId      String
-  name        String
-  startsAt    DateTime
-  venue       String
-  status      EventStatus  @default(draft)
-  cancelledAt DateTime?
+  id                 String       @id @default(cuid())
+  clubId             String
+  name               String
+  startsAt           DateTime
+  venue              String
+  status             EventStatus  @default(draft)
+  cancelledAt        DateTime?
   cancellationReason String?
-  archivedAt  DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  club        Club         @relation(fields: [clubId], references: [id], onDelete: Restrict)
-  ticketTypes TicketType[]
-  ticketAreas TicketArea[]
-  orders      Order[]
-  tickets     Ticket[]
+  archivedAt         DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  club               Club         @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  ticketTypes        TicketType[]
+  ticketAreas        TicketArea[]
+  orders             Order[]
+  tickets            Ticket[]
 
   @@index([clubId, startsAt])
   @@index([clubId, archivedAt, startsAt])
 }
 
 model TicketType {
-  id                 String        @id @default(cuid())
-  eventId            String
-  ticketAreaId       String
-  name               String
-  description        String?
-  isTransferable     Boolean       @default(false)
-  priceUsdc          Decimal       @db.Decimal(18, 6)
-  quantityTotal      Int
-  quantityReserved   Int           @default(0)
-  quantitySold       Int           @default(0)
-  maxPerOrder        Int           @default(8)
-  isActive           Boolean       @default(true)
-  salesStartAt       DateTime?
-  salesEndAt         DateTime?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  event              Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  ticketArea         TicketArea    @relation(fields: [ticketAreaId], references: [id], onDelete: Restrict)
-  orderItems         OrderItem[]
+  id               String      @id @default(cuid())
+  eventId          String
+  ticketAreaId     String
+  name             String
+  description      String?
+  isTransferable   Boolean     @default(false)
+  priceUsdc        Decimal     @db.Decimal(18, 6)
+  quantityTotal    Int
+  quantityReserved Int         @default(0)
+  quantitySold     Int         @default(0)
+  maxPerOrder      Int         @default(8)
+  isActive         Boolean     @default(true)
+  salesStartAt     DateTime?
+  salesEndAt       DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  event            Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  ticketArea       TicketArea  @relation(fields: [ticketAreaId], references: [id], onDelete: Restrict)
+  orderItems       OrderItem[]
 
   @@index([eventId])
   @@index([ticketAreaId])
@@ -210,31 +215,58 @@ model TicketArea {
 }
 
 model Fan {
-  id                String            @id @default(cuid())
-  supabaseUserId    String?           @unique
-  email             String            @unique
+  id                String              @id @default(cuid())
+  supabaseUserId    String?             @unique
+  email             String              @unique
   displayName       String?
   favoriteClubId    String?
-  createdAt         DateTime          @default(now())
-  favoriteClub      Club?             @relation("FavoriteClub", fields: [favoriteClubId], references: [id], onDelete: SetNull)
+  createdAt         DateTime            @default(now())
+  favoriteClub      Club?               @relation("FavoriteClub", fields: [favoriteClubId], references: [id], onDelete: SetNull)
   wallet            FanCircleWallet?
   orders            Order[]
   tickets           Ticket[]
-  preferredCurrency String            @default("USDC")
+  preferredCurrency String              @default("USDC")
   favoriteClubs     FanFavoriteClub[]
+  walletTransfers   FanWalletTransfer[]
 
   @@index([favoriteClubId])
 }
 
 model FanCircleWallet {
-  id        String   @id @default(cuid())
-  fanId     String   @unique
+  id        String              @id @default(cuid())
+  fanId     String              @unique
   userId    String
-  walletId  String   @unique
+  walletId  String              @unique
   address   String
-  chain     String   @default("ARC-TESTNET")
-  createdAt DateTime @default(now())
-  fan       Fan      @relation(fields: [fanId], references: [id], onDelete: Restrict)
+  chain     String              @default("ARC-TESTNET")
+  createdAt DateTime            @default(now())
+  fan       Fan                 @relation(fields: [fanId], references: [id], onDelete: Restrict)
+  transfers FanWalletTransfer[]
+}
+
+model FanWalletTransfer {
+  id                 String                   @id @default(cuid())
+  fanId              String
+  fanCircleWalletId  String
+  orderId            String?
+  purpose            FanWalletTransferPurpose
+  destinationAddress String
+  amountUsdc         Decimal                  @db.Decimal(18, 6)
+  tokenId            String
+  idempotencyKey     String                   @unique
+  challengeId        String?                  @unique
+  challengeStatus    String                   @default("created")
+  failureReason      String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  challengeUpdatedAt DateTime?
+  fan                Fan                      @relation(fields: [fanId], references: [id], onDelete: Restrict)
+  wallet             FanCircleWallet          @relation(fields: [fanCircleWalletId], references: [id], onDelete: Restrict)
+  order              Order?                   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([fanId, createdAt])
+  @@index([orderId])
+  @@index([challengeStatus, createdAt])
 }
 
 model FanFavoriteClub {
@@ -249,21 +281,22 @@ model FanFavoriteClub {
 }
 
 model Order {
-  id                  String      @id @default(cuid())
+  id                  String              @id @default(cuid())
   fanId               String
   eventId             String
-  status              OrderStatus @default(pending)
-  totalUsdc           Decimal     @db.Decimal(18, 6)
-  depositAddress      String      @unique
+  status              OrderStatus         @default(pending)
+  totalUsdc           Decimal             @db.Decimal(18, 6)
+  depositAddress      String              @unique
   depositAddressKeyId String?
   expiresAt           DateTime
-  createdAt           DateTime    @default(now())
+  createdAt           DateTime            @default(now())
   paidAt              DateTime?
   fulfilledAt         DateTime?
-  fan                 Fan         @relation(fields: [fanId], references: [id], onDelete: Restrict)
-  event               Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  fan                 Fan                 @relation(fields: [fanId], references: [id], onDelete: Restrict)
+  event               Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
   items               OrderItem[]
   payments            Payment[]
+  walletTransfers     FanWalletTransfer[]
 
   @@index([fanId, createdAt])
   @@index([status])
@@ -350,7 +383,7 @@ model TicketSeat {
   label        String
   sectionLabel String?
   rowLabel     String?
-  seatNumber  String?
+  seatNumber   String?
   sortOrder    Int
   status       TicketSeatStatus @default(available)
   createdAt    DateTime         @default(now())

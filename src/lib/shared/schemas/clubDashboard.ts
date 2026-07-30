@@ -98,7 +98,7 @@ export const createTicketTypeSchema = z
   });
 
 export const updateTicketTypeSchema = z
-  .object(ticketTypeFields)
+  .object({ ticketAreaId: z.string().min(1), ...ticketTypeFields })
   .partial()
   .superRefine((value, context) => {
     if (Object.keys(value).length === 0) {

@@ -13,11 +13,14 @@ export function SignupForm() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [confirmationStatus, setConfirmationStatus] = useState<
+    "sent" | "uncertain" | null
+  >(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setConfirmationStatus(null);
     if (password !== passwordConfirmation) {
       setError("Passwords do not match.");
       return;
@@ -35,26 +38,39 @@ export function SignupForm() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
+        // Defensive compatibility with an older server response: this is not
+        // a definitive failure because Supabase may already have sent mail.
+        if (json.error === "signup_status_uncertain") {
+          setConfirmationStatus("uncertain");
+          return;
+        }
         setError(signupErrorMessage(json.error));
         return;
       }
       if (json.needsConfirmation) {
-        setNeedsConfirmation(true);
+        setConfirmationStatus(
+          json.confirmationStatus === "uncertain" ? "uncertain" : "sent",
+        );
         return;
       }
       router.refresh();
       router.push("/onboarding");
     } catch {
-      setError("Network error");
+      // The request may have reached Supabase even if the browser never
+      // received our response. Avoid showing a false signup failure.
+      setConfirmationStatus("uncertain");
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (needsConfirmation) {
+  if (confirmationStatus) {
     return (
       <div className="mt-6 rounded-xl border border-border bg-surface-elev p-4 text-sm text-zinc-300">
-        Check your inbox to confirm your email. Then{" "}
+        {confirmationStatus === "sent"
+          ? "We sent a confirmation link. Check your inbox to finish signing up."
+          : "Check your inbox for a confirmation link. If it does not arrive within a few minutes, return here and try again."}{" "}
+        Then{" "}
         <Link href="/login" className="text-gradient-accent font-medium">
           log in
         </Link>
@@ -110,8 +126,6 @@ function signupErrorMessage(code: unknown): string {
   const messages: Record<string, string> = {
     confirmation_email_rate_limited:
       "Too many confirmation emails were requested. Wait about an hour and try again, or use Google sign-in.",
-    signup_status_uncertain:
-      "We could not confirm the response from Supabase. If a confirmation email arrived, your account was created—open that link to continue. Otherwise, try again shortly.",
     email_already_registered:
       "An account already uses this email. Log in or reset its password instead.",
     weak_password: "Choose a stronger password with a mix of letters, numbers, and symbols.",
