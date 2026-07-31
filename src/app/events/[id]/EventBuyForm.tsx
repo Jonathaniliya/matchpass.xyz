@@ -48,6 +48,16 @@ export function EventBuyForm({
     for (const ticketType of ticketTypes) unique.set(ticketType.area.id, ticketType.area);
     return [...unique.values()];
   }, [ticketTypes]);
+  const areaTypeCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const ticketType of ticketTypes) {
+      counts.set(
+        ticketType.ticketAreaId,
+        (counts.get(ticketType.ticketAreaId) ?? 0) + 1,
+      );
+    }
+    return counts;
+  }, [ticketTypes]);
   const selectedArea = areas.find((area) => area.id === selectedAreaId) ?? null;
   const visibleTypes = ticketTypes.filter((type) => type.ticketAreaId === selectedAreaId);
   const items = visibleTypes
@@ -127,6 +137,14 @@ export function EventBuyForm({
         {areas.map((area) => {
           const selected = area.id === selectedAreaId;
           const soldOut = area.remaining <= 0;
+          const onlyTicketType =
+            areaTypeCounts.get(area.id) === 1
+              ? ticketTypes.find((type) => type.ticketAreaId === area.id)
+              : null;
+          const displayName =
+            area.name === "General admission" && onlyTicketType
+              ? onlyTicketType.name
+              : area.name;
           return (
             <button
               key={area.id}
@@ -140,17 +158,32 @@ export function EventBuyForm({
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <span className="font-medium text-zinc-100">{area.name}</span>
+                <span className="font-medium text-zinc-100">{displayName}</span>
                 <span className="text-xs text-zinc-500">
                   {soldOut ? "Sold out" : `${area.remaining} left`}
                 </span>
               </div>
-              <p className="mt-2 text-xs leading-5 text-zinc-400">
-                {area.admissionType === "reserved_seating"
-                  ? `${area.sectionLabel} · Row ${area.rowLabel} · best available seats`
-                  : area.sectionLabel ?? "General admission"}
-                {area.entranceLabel ? ` · ${area.entranceLabel}` : ""}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-zinc-300">
+                  {area.admissionType === "reserved_seating"
+                    ? "Reserved seating"
+                    : "General admission"}
+                </span>
+                {area.sectionLabel && (
+                  <span className="text-zinc-400">{area.sectionLabel}</span>
+                )}
+                {area.rowLabel && (
+                  <span className="text-zinc-400">· Row {area.rowLabel}</span>
+                )}
+                {area.entranceLabel && (
+                  <span className="text-zinc-400">· {area.entranceLabel}</span>
+                )}
+              </div>
+              {area.accessInstructions && (
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  {area.accessInstructions}
+                </p>
+              )}
             </button>
           );
         })}
@@ -167,6 +200,43 @@ export function EventBuyForm({
                 ? "We will hold the best adjacent seats available and show them before payment."
                 : "This is unassigned general admission."}
             </p>
+            <dl className="mt-3 grid gap-2 rounded-xl border border-border bg-zinc-950/30 p-3 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="text-zinc-500">Admission</dt>
+                <dd className="mt-0.5 text-zinc-200">
+                  {selectedArea.admissionType === "reserved_seating"
+                    ? "Reserved seat"
+                    : "Unassigned general admission"}
+                </dd>
+              </div>
+              {selectedArea.sectionLabel && (
+                <div>
+                  <dt className="text-zinc-500">Section / stand</dt>
+                  <dd className="mt-0.5 text-zinc-200">
+                    {selectedArea.sectionLabel}
+                    {selectedArea.rowLabel
+                      ? ` · Row ${selectedArea.rowLabel}`
+                      : ""}
+                  </dd>
+                </div>
+              )}
+              {selectedArea.entranceLabel && (
+                <div>
+                  <dt className="text-zinc-500">Entrance</dt>
+                  <dd className="mt-0.5 text-zinc-200">
+                    {selectedArea.entranceLabel}
+                  </dd>
+                </div>
+              )}
+              {selectedArea.accessInstructions && (
+                <div className="sm:col-span-2">
+                  <dt className="text-zinc-500">Entry instructions</dt>
+                  <dd className="mt-0.5 leading-5 text-zinc-200">
+                    {selectedArea.accessInstructions}
+                  </dd>
+                </div>
+              )}
+            </dl>
             <div className="mt-4 space-y-3">
               {visibleTypes.map((ticketType) => {
                 const otherQuantity = selectedQuantity - (quantities[ticketType.id] ?? 0);

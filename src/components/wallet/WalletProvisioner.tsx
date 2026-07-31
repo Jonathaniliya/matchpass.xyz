@@ -376,6 +376,8 @@ function walletErrorMessage(
     destination_is_your_wallet: "Choose a different destination address.",
     invalid_transfer: "Check the destination address and amount.",
     transfer_challenge_failed: "Circle could not create this transfer. Try again.",
+    wallet_payments_not_deployed:
+      "Wallet transfers are temporarily unavailable while the database update is deployed.",
     circle_credentials_unavailable: "Circle could not authenticate this wallet. Try again.",
     wallet_init_failed: "Circle could not start wallet setup. Try again.",
   };

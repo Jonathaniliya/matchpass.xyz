@@ -36,6 +36,13 @@ export async function POST(request: NextRequest) {
         { status: error.status },
       );
     }
+    if (isMissingWalletTransferTable(error)) {
+      console.error("fan_wallet_transfer_migration_required", { fanId: fan.id });
+      return NextResponse.json(
+        { error: "wallet_payments_not_deployed" },
+        { status: 503 },
+      );
+    }
     console.error("fan_wallet_transfer_challenge_failed", {
       fanId: fan.id,
       error: error instanceof Error ? error.message : "unknown_error",
@@ -45,4 +52,13 @@ export async function POST(request: NextRequest) {
       { status: 502 },
     );
   }
+}
+
+function isMissingWalletTransferTable(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2021"
+  );
 }

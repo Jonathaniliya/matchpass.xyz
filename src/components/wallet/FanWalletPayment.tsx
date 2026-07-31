@@ -223,6 +223,8 @@ function paymentErrorMessage(
     insufficient_usdc_for_amount_and_fee: `Leave enough USDC for the Arc network fee. Required: ${details?.required ?? "unknown"} USDC.`,
     usdc_balance_unavailable: "Circle has not indexed USDC for this wallet yet.",
     transfer_challenge_failed: "Circle could not create this payment. Try again.",
+    wallet_payments_not_deployed:
+      "Wallet payments are temporarily unavailable while the database update is deployed. You can still pay from another wallet below.",
   };
   return typeof code === "string"
     ? (messages[code] ?? code.replaceAll("_", " "))

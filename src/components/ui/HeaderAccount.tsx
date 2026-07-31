@@ -15,8 +15,9 @@ type Props = {
 
 export function HeaderAccount({ fan }: Props) {
   const [open, setOpen] = useState(false);
-  const [showBalance, setShowBalance] = useState(true);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [walletChain, setWalletChain] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -42,6 +43,7 @@ export function HeaderAccount({ fan }: Props) {
       .then((d) => {
         setBalances(d.balances ?? []);
         if (d.address) setWalletAddress(d.address);
+        if (d.chain) setWalletChain(d.chain);
       })
       .catch(() => {})
       .finally(() => setLoadingBalance(false));
@@ -58,53 +60,32 @@ export function HeaderAccount({ fan }: Props) {
         ? `0.00 ${fan.preferredCurrency}`
         : null;
 
-  const displayLabel =
-    showBalance && balanceLabel
-      ? balanceLabel
-      : (fan.displayName ?? fan.email);
+  const displayLabel = balanceLabel ?? fan.displayName ?? fan.email;
 
   return (
     <div ref={dropdownRef} className="relative flex items-center gap-1">
-      {/* Balance / identity toggle */}
+      {/* Wallet details */}
       {balanceLabel && (
         <button
           type="button"
-          aria-label={showBalance ? "Show name" : "Show balance"}
-          onClick={() => setShowBalance((v) => !v)}
+          aria-label="Open wallet details"
+          onClick={() => setOpen((value) => !value)}
           className="hidden rounded-full border border-border p-1.5 text-zinc-400 hover:bg-surface-elev sm:inline-flex"
-          title={showBalance ? "Show name" : "Show balance"}
+          title="Wallet details"
         >
-          {showBalance ? (
-            /* person icon */
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-          ) : (
-            /* wallet icon */
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-              />
-            </svg>
-          )}
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+            />
+          </svg>
         </button>
       )}
 
@@ -141,30 +122,52 @@ export function HeaderAccount({ fan }: Props) {
             </p>
           </div>
 
-          {/* Balances */}
-          {balances.length > 0 && (
+          {/* Wallet balance */}
+          {walletAddress && (
             <div className="mb-4">
               <p className="mb-1 text-[10px] uppercase tracking-widest text-zinc-500">
-                Balance
+                Wallet balance
               </p>
-              <div className="space-y-0.5">
-                {balances.map((b) => (
-                  <p key={b.symbol} className="text-sm font-semibold text-foreground">
-                    {parseFloat(b.amount).toFixed(2)}{" "}
-                    <span className="font-normal text-zinc-400">{b.symbol}</span>
-                  </p>
-                ))}
-              </div>
+              <p className="text-lg font-semibold text-foreground">
+                {preferredBalance
+                  ? parseFloat(preferredBalance.amount).toFixed(2)
+                  : "0.00"}{" "}
+                <span className="text-sm font-normal text-zinc-400">USDC</span>
+              </p>
             </div>
           )}
 
-          {/* Preferred currency */}
-          <div className="mb-4">
-            <p className="mb-0.5 text-[10px] uppercase tracking-widest text-zinc-500">
-              Preferred currency
-            </p>
-            <p className="text-xs text-zinc-300">{fan.preferredCurrency}</p>
-          </div>
+          {/* Deposit address */}
+          {walletAddress && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+                  Deposit address
+                </p>
+                {walletChain && (
+                  <span className="text-[10px] text-zinc-600">
+                    {walletChain.replace("-TESTNET", " Testnet")}
+                  </span>
+                )}
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-border bg-surface-elev px-2.5 py-2 font-mono text-[11px] text-zinc-300">
+                  {walletAddress}
+                </code>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(walletAddress);
+                    setCopied(true);
+                    window.setTimeout(() => setCopied(false), 1_500);
+                  }}
+                  className="rounded-lg border border-border bg-surface-elev px-2.5 py-2 text-[11px] text-zinc-200"
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="border-t border-border pt-3">
             <Link
