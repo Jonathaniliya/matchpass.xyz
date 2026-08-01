@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type EventStatus = "draft" | "on_sale" | "sold_out" | "closed" | "cancelled";
 type LifecycleAction = "publish" | "unpublish" | "close" | "cancel" | "archive" | "unarchive";
@@ -67,6 +67,7 @@ export function ClubDashboardClient({
   const archivedEvents = events.filter((event) => event.archivedAt);
   return (
     <div>
+      {canManage && <TreasuryBalanceCard clubSlug={clubSlug} />}
       <div>
         <p className="text-xs uppercase tracking-wide text-zinc-500">Inventory</p>
         <h2 className="mt-1 text-2xl font-semibold">Matchdays, areas, and ticket categories</h2>
@@ -98,6 +99,48 @@ export function ClubDashboardClient({
         </details>
       )}
     </div>
+  );
+}
+
+function TreasuryBalanceCard({ clubSlug }: { clubSlug: string }) {
+  const [amount, setAmount] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/club/${clubSlug}/treasury`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error ?? "treasury_unavailable");
+        if (alive) setAmount(body.amount ?? "0");
+      })
+      .catch(() => {
+        if (alive) setError(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [clubSlug]);
+
+  return (
+    <section className="mb-8 rounded-2xl border border-emerald-900/60 bg-emerald-950/20 p-5">
+      <p className="text-xs uppercase tracking-[0.18em] text-emerald-300">
+        Club treasury
+      </p>
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-mono text-2xl text-zinc-100">
+            {error ? "Unavailable" : amount === null ? "Loading…" : `${Number(amount).toFixed(2)} USDC`}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Settled ticket funds are swept here automatically. This is not a personal admin wallet.
+          </p>
+        </div>
+        <span className="rounded-full border border-emerald-700/60 px-3 py-1 text-xs text-emerald-200">
+          Developer-controlled
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -178,7 +221,7 @@ function EventPanel({ event, clubSlug, canManage }: { event: DashboardEvent; clu
       <div className="flex flex-col justify-between gap-4 border-b border-border p-5 sm:flex-row sm:items-center">
         <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-medium">{event.name}</h3><StatusPill>{event.status.replace("_", " ")}</StatusPill>{archived && <StatusPill tone="violet">archived</StatusPill>}</div><p className="mt-1 text-sm text-zinc-500">{event.venue} · {new Date(event.startsAt).toLocaleString()}</p></div>
         <div className="flex flex-wrap items-center gap-2">
-          {event.status === "on_sale" && <Link href={`/events/${event.id}`} className="text-xs text-cyan-400 hover:underline">Public page ↗</Link>}
+          {event.status === "on_sale" && !canManage && <Link href={`/events/${event.id}`} className="text-xs text-cyan-400 hover:underline">Public page ↗</Link>}
           {canManage && (archived ? <ActionButton disabled={busy} onClick={() => void lifecycle("unarchive")}>Restore</ActionButton> : <>
             {(event.status === "draft" || event.status === "closed") && <ActionButton disabled={busy} onClick={() => void lifecycle("publish")}>{event.status === "closed" ? "Reopen sales" : "Publish"}</ActionButton>}
             {(event.status === "on_sale" || event.status === "sold_out") && <><ActionButton disabled={busy || event.orderCount > 0} title={event.orderCount > 0 ? "Events with orders must be closed, not unpublished." : undefined} onClick={() => void lifecycle("unpublish")}>Unpublish</ActionButton><ActionButton disabled={busy} onClick={() => void lifecycle("close")}>Close sales</ActionButton><ActionButton disabled={busy} onClick={() => void lifecycle("cancel")}>Cancel</ActionButton></>}

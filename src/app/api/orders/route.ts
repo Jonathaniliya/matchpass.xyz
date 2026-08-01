@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/server/db/prisma";
 import { createOrderSchema } from "@/lib/shared/schemas/order";
 import { createOrder, OrderError } from "@/lib/server/orders/create";
+import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,12 @@ export async function POST(req: Request) {
   let fanId: string;
   const signedInFan = await getCurrentFan();
   if (signedInFan) {
+    if ((await getCurrentClubAccesses()).length > 0) {
+      return NextResponse.json(
+        { error: "club_staff_cannot_purchase" },
+        { status: 403 },
+      );
+    }
     fanId = signedInFan.id;
   } else {
     if (!guestEmail) {

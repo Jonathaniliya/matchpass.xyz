@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db/prisma";
 import { issueTicketsForOrder } from "@/lib/server/tickets/issue";
 import { sendTicketReadyEmail } from "@/lib/server/email/sendTicketReady";
+import { processTreasurySweep } from "@/lib/server/circle/treasurySweep";
 
 type InboundNotification = {
   id: string;
@@ -13,6 +14,7 @@ type InboundNotification = {
   transactionType?: string;
   txHash?: string;
   sourceAddress?: string;
+  refId?: string;
 };
 
 type WebhookEnvelope = {
@@ -64,6 +66,30 @@ export async function dispatchCircleWebhook(
     return { kind: "test_ping" };
   }
 
+  if (envelope.notificationType === "transactions.outbound") {
+    const outbound = envelope.notification as InboundNotification | undefined;
+    const sweep = outbound?.refId
+      ? await prisma.treasurySweep.findUnique({ where: { id: outbound.refId } })
+      : null;
+    if (sweep) {
+      const settledStates = new Set(["COMPLETE", "COMPLETED", "CONFIRMED"]);
+      const failedStates = new Set(["FAILED", "DENIED", "CANCELLED", "STUCK"]);
+      await prisma.treasurySweep.update({
+        where: { id: sweep.id },
+        data: settledStates.has(outbound?.state ?? "")
+          ? { status: "complete", completedAt: new Date() }
+          : failedStates.has(outbound?.state ?? "")
+            ? { status: "failed", failureReason: `circle:${outbound?.state}` }
+            : { status: "submitted" },
+      });
+    }
+    await prisma.paymentEvent.update({
+      where: { id: paymentEvent.id },
+      data: { status: "processed", processedAt: new Date() },
+    });
+    return { kind: "ignored", reason: sweep ? "treasury_sweep_updated" : "outbound_unmatched" };
+  }
+
   if (envelope.notificationType !== "transactions.inbound") {
     await prisma.paymentEvent.update({
       where: { id: paymentEvent.id },
@@ -106,6 +132,14 @@ export async function dispatchCircleWebhook(
         { depositAddress: depositAddress },
       ],
     },
+    include: {
+      event: {
+        select: {
+          clubId: true,
+          club: { select: { circleAccount: true } },
+        },
+      },
+    },
   });
   if (!order) {
     await prisma.paymentEvent.update({
@@ -113,6 +147,14 @@ export async function dispatchCircleWebhook(
       data: { status: "failed" },
     });
     return { kind: "no_order_match", depositAddress: n.destinationAddress };
+  }
+
+  if (!order.depositAddressKeyId || !order.event.club.circleAccount) {
+    await prisma.paymentEvent.update({
+      where: { id: paymentEvent.id },
+      data: { status: "failed" },
+    });
+    throw new Error("order_club_wallet_configuration_missing");
   }
 
   const paidAmount = new Prisma.Decimal(n.amounts?.[0] ?? "0");
@@ -181,6 +223,16 @@ export async function dispatchCircleWebhook(
         where: { id: order.id },
         data: { status: "fulfilled", fulfilledAt: new Date() },
       });
+      await tx.treasurySweep.create({
+        data: {
+          orderId: order.id,
+          clubId: order.event.clubId,
+          sourceWalletId: order.depositAddressKeyId!,
+          destinationWalletId: order.event.club.circleAccount!.walletId,
+          amountUsdc: paidAmount,
+          status: "pending",
+        },
+      });
       await tx.paymentEvent.update({
         where: { id: paymentEvent.id },
         data: { status: "processed", processedAt: new Date() },
@@ -191,6 +243,11 @@ export async function dispatchCircleWebhook(
   );
 
   if (issuedCount > 0) {
+    const sweep = await prisma.treasurySweep.findUnique({
+      where: { orderId: order.id },
+      select: { id: true },
+    });
+    if (sweep) void processTreasurySweep(sweep.id);
     // Fire-and-forget — never block fulfillment on email delivery.
     const full = await prisma.order.findUnique({
       where: { id: order.id },

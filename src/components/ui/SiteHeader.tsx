@@ -3,6 +3,7 @@ import { getCurrentFan } from "@/lib/server/auth/requireFan";
 import { LogoutButton } from "@/components/ui/LogoutButton";
 import { HeaderAccount } from "@/components/ui/HeaderAccount";
 import { prisma } from "@/lib/server/db/prisma";
+import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
 
 export async function SiteHeader() {
   const fan = await getCurrentFan();
@@ -28,40 +29,47 @@ export async function SiteHeader() {
     }
   }
 
+  if (fan) {
+    hasClubAccess = (await getCurrentClubAccesses()).length > 0;
+  }
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-surface/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-        <Link href="/" className="text-sm font-semibold tracking-tight">
+        <Link href={hasClubAccess ? "/club" : "/"} className="text-sm font-semibold tracking-tight">
           matchpass<span className="text-gradient-accent">.xyz</span>
         </Link>
 
-        <nav className="hidden gap-5 text-sm text-zinc-300 sm:flex">
-          <Link href="/leagues" className="hover:text-foreground">
-            Leagues
-          </Link>
-          <Link href="/" className="hover:text-foreground">
-            Matchdays
-          </Link>
-        </nav>
+        {!hasClubAccess && (
+          <nav className="hidden gap-5 text-sm text-zinc-300 sm:flex">
+            <Link href="/leagues" className="hover:text-foreground">
+              Leagues
+            </Link>
+            <Link href="/" className="hover:text-foreground">
+              Matchdays
+            </Link>
+          </nav>
+        )}
 
         <div className="flex items-center gap-2">
           {fan ? (
             <>
-              {hasClubAccess && (
+              {hasClubAccess ? (
                 <Link
                   href="/club"
                   className="rounded-full border border-cyan-900/70 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-950/40"
                 >
-                  Club
+                  Club workspace
                 </Link>
+              ) : (
+                <HeaderAccount
+                  fan={{
+                    displayName: fan.displayName,
+                    email: fan.email,
+                    preferredCurrency: (fan as { preferredCurrency?: string }).preferredCurrency ?? "USDC",
+                  }}
+                />
               )}
-              <HeaderAccount
-                fan={{
-                  displayName: fan.displayName,
-                  email: fan.email,
-                  preferredCurrency: (fan as { preferredCurrency?: string }).preferredCurrency ?? "USDC",
-                }}
-              />
               <LogoutButton className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-surface-elev disabled:opacity-60" />
             </>
           ) : (

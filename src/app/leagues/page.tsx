@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/server/db/prisma";
 import { LeagueCard } from "@/components/ui/LeagueCard";
+import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function LeaguesPage() {
+  if ((await getCurrentClubAccesses()).length > 0) redirect("/club");
   const leagues = await prisma.league.findMany({
     orderBy: { tier: "asc" },
     include: { _count: { select: { clubs: true } } },

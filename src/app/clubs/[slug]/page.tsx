@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db/prisma";
 import { EventCard } from "@/components/ui/EventCard";
 import { ClubBadge } from "@/components/ui/ClubBadge";
+import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,7 @@ export default async function ClubPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  if ((await getCurrentClubAccesses()).length > 0) redirect("/club");
 
   const club = await prisma.club.findUnique({
     where: { slug },

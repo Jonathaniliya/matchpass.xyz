@@ -4,11 +4,14 @@ import { prisma } from "@/lib/server/db/prisma";
 import { ProfileForm, type ClubOption } from "./ProfileForm";
 import { WalletProvisioner } from "@/components/wallet/WalletProvisioner";
 import { syncFanWalletFromCircle } from "@/lib/server/circle/fanWallet";
+import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const fan = await requireFan();
+  if ((await getCurrentClubAccesses()).length > 0) redirect("/club");
 
   const localWallet = await prisma.fanCircleWallet.findUnique({
     where: { fanId: fan.id },

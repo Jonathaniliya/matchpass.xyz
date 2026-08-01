@@ -28,9 +28,12 @@ export default function LoginPage() {
         setError(json.error ?? "Login failed");
         return;
       }
+      const json = await res.json().catch(() => ({}));
       const requestedNext = new URLSearchParams(window.location.search).get("next");
       const safeNext =
-        requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+        json.redirectTo === "/club"
+          ? "/club"
+          : requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
           ? requestedNext
           : "/";
       router.push(safeNext);

@@ -105,6 +105,8 @@ export function EventBuyForm({
           identity_verification_required:
             "That email belongs to a fan account. Log in to buy with it.",
           single_area_required: "Choose tickets from one seating area at a time.",
+          club_staff_cannot_purchase:
+            "Club staff use the club workspace and cannot purchase tickets from this account.",
           adjacent_seats_unavailable:
             "There are no adjacent seats left for this group. Choose another area or reduce the quantity.",
           ticket_area_unavailable: "This area just sold out. Pick another area.",

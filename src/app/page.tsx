@@ -3,11 +3,16 @@ import { prisma } from "@/lib/server/db/prisma";
 import { getCurrentFan } from "@/lib/server/auth/requireFan";
 import { LeagueCard } from "@/components/ui/LeagueCard";
 import { EventCard } from "@/components/ui/EventCard";
+import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const fan = await getCurrentFan();
+  if (fan && (await getCurrentClubAccesses()).length > 0) {
+    redirect("/club");
+  }
 
   const [topLeagues, favoriteClub] = await Promise.all([
     prisma.league.findMany({

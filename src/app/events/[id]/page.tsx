@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/server/db/prisma";
 import { getCurrentFan } from "@/lib/server/auth/requireFan";
 import { EventBuyForm } from "./EventBuyForm";
+import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
+import { redirect } from "next/navigation";
 
 export default async function EventPage({
   params,
@@ -9,6 +11,9 @@ export default async function EventPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if ((await getCurrentClubAccesses()).length > 0) {
+    redirect("/club");
+  }
   const now = new Date();
   const [event, fan] = await Promise.all([
     prisma.event.findUnique({
