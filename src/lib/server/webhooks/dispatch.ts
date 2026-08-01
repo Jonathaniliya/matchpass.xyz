@@ -2,7 +2,6 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db/prisma";
 import { issueTicketsForOrder } from "@/lib/server/tickets/issue";
 import { sendTicketReadyEmail } from "@/lib/server/email/sendTicketReady";
-import { processTreasurySweep } from "@/lib/server/circle/treasurySweep";
 
 type InboundNotification = {
   id: string;
@@ -31,7 +30,12 @@ export type DispatchResult =
   | { kind: "duplicate" }
   | { kind: "no_order_match"; depositAddress: string }
   | { kind: "review"; reason: string; orderId: string }
-  | { kind: "fulfilled"; orderId: string; tickets: number }
+  | {
+      kind: "fulfilled";
+      orderId: string;
+      tickets: number;
+      treasurySweepId: string | null;
+    }
   | { kind: "ignored"; reason: string };
 
 export async function dispatchCircleWebhook(
@@ -68,8 +72,12 @@ export async function dispatchCircleWebhook(
 
   if (envelope.notificationType === "transactions.outbound") {
     const outbound = envelope.notification as InboundNotification | undefined;
-    const sweep = outbound?.refId
-      ? await prisma.treasurySweep.findUnique({ where: { id: outbound.refId } })
+    const sweepLookup = [
+      ...(outbound?.refId ? [{ id: outbound.refId }] : []),
+      ...(outbound?.id ? [{ providerTransactionId: outbound.id }] : []),
+    ];
+    const sweep = sweepLookup.length
+      ? await prisma.treasurySweep.findFirst({ where: { OR: sweepLookup } })
       : null;
     if (sweep) {
       const settledStates = new Set(["COMPLETE", "COMPLETED", "CONFIRMED"]);
@@ -242,12 +250,13 @@ export async function dispatchCircleWebhook(
     { maxWait: 10_000, timeout: 30_000 },
   );
 
+  let treasurySweepId: string | null = null;
   if (issuedCount > 0) {
     const sweep = await prisma.treasurySweep.findUnique({
       where: { orderId: order.id },
       select: { id: true },
     });
-    if (sweep) void processTreasurySweep(sweep.id);
+    treasurySweepId = sweep?.id ?? null;
     // Fire-and-forget — never block fulfillment on email delivery.
     const full = await prisma.order.findUnique({
       where: { id: order.id },
@@ -267,5 +276,10 @@ export async function dispatchCircleWebhook(
     }
   }
 
-  return { kind: "fulfilled", orderId: order.id, tickets: issuedCount };
+  return {
+    kind: "fulfilled",
+    orderId: order.id,
+    tickets: issuedCount,
+    treasurySweepId,
+  };
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/server/db/prisma";
 import { dispatchCircleWebhook } from "@/lib/server/webhooks/dispatch";
+import { processTreasurySweep } from "@/lib/server/circle/treasurySweep";
 
 async function main() {
   const idArg = process.argv[2];
@@ -28,6 +29,12 @@ async function main() {
 
   const payload = evt.rawPayload as Parameters<typeof dispatchCircleWebhook>[0];
   const result = await dispatchCircleWebhook(payload, payload, evt.signatureKeyId);
+  if (
+    "treasurySweepId" in result &&
+    typeof result.treasurySweepId === "string"
+  ) {
+    await processTreasurySweep(result.treasurySweepId);
+  }
   console.log("Dispatch result:", JSON.stringify(result, null, 2));
 }
 

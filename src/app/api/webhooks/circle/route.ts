@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { verifyCircleSignature } from "@/lib/server/circle/webhookVerify";
 import { dispatchCircleWebhook } from "@/lib/server/webhooks/dispatch";
+import { processTreasurySweep } from "@/lib/server/circle/treasurySweep";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,13 @@ export async function POST(req: Request) {
       payload,
       verification.keyId,
     );
+    if (
+      "treasurySweepId" in result &&
+      typeof result.treasurySweepId === "string"
+    ) {
+      const sweepId = result.treasurySweepId;
+      after(() => processTreasurySweep(sweepId));
+    }
     console.log("circle_webhook_dispatched", result);
     return NextResponse.json({ ok: true, result });
   } catch (err) {
