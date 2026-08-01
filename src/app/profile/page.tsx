@@ -5,19 +5,21 @@ import { ProfileForm, type ClubOption } from "./ProfileForm";
 import { WalletProvisioner } from "@/components/wallet/WalletProvisioner";
 import { syncFanWalletFromCircle } from "@/lib/server/circle/fanWallet";
 import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const fan = await requireFan();
-  if ((await getCurrentClubAccesses()).length > 0) redirect("/club");
+  const clubAccesses = await getCurrentClubAccesses();
+  const isClubStaff = clubAccesses.length > 0;
 
-  const localWallet = await prisma.fanCircleWallet.findUnique({
-    where: { fanId: fan.id },
-    select: { id: true },
-  });
-  if (!localWallet) {
+  const localWallet = isClubStaff
+    ? null
+    : await prisma.fanCircleWallet.findUnique({
+        where: { fanId: fan.id },
+        select: { id: true },
+      });
+  if (!isClubStaff && !localWallet) {
     try {
       // Recover wallets whose Circle challenge completed before the wallet
       // became visible to the original sync request.
@@ -40,18 +42,24 @@ export default async function ProfilePage() {
         wallet: true,
       },
     }),
-    prisma.club.findMany({
-      orderBy: [{ league: { tier: "asc" } }, { name: "asc" }],
-      include: { league: { select: { name: true, slug: true, tier: true } } },
-    }),
-    prisma.order.findMany({
-      where: { fanId: fan.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        event: { include: { club: true } },
-        items: { include: { tickets: true } },
-      },
-    }),
+    isClubStaff
+      ? Promise.resolve([])
+      : prisma.club.findMany({
+          orderBy: [{ league: { tier: "asc" } }, { name: "asc" }],
+          include: {
+            league: { select: { name: true, slug: true, tier: true } },
+          },
+        }),
+    isClubStaff
+      ? Promise.resolve([])
+      : prisma.order.findMany({
+          where: { fanId: fan.id },
+          orderBy: { createdAt: "desc" },
+          include: {
+            event: { include: { club: true } },
+            items: { include: { tickets: true } },
+          },
+        }),
   ]);
 
   const clubOptions: ClubOption[] = clubs.map((c) => ({
@@ -65,7 +73,7 @@ export default async function ProfilePage() {
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <section className="w-full max-w-2xl">
         <p className="text-xs uppercase tracking-wide text-zinc-500">
-          Account
+          {isClubStaff ? "Club account" : "Account"}
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
           Profile
@@ -84,34 +92,39 @@ export default async function ProfilePage() {
             <ProfileForm
               initial={{
                 displayName: fullFan?.displayName ?? null,
+                avatarUrl: fullFan?.avatarUrl ?? null,
+                themePreference: fullFan?.themePreference ?? "system",
                 favoriteClubId: fullFan?.favoriteClubId ?? null,
-                preferredCurrency: fullFan?.preferredCurrency ?? "USDC",
               }}
               clubs={clubOptions}
+              isClubStaff={isClubStaff}
+              email={fan.email}
             />
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-border bg-surface p-6">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
-            Personal wallet{" "}
-            <span className="normal-case text-zinc-600">(optional)</span>
-          </h2>
-          <div className="mt-3">
-            <WalletProvisioner
-              wallet={
-                fullFan?.wallet
-                  ? {
-                      address: fullFan.wallet.address,
-                      chain: fullFan.wallet.chain,
-                    }
-                  : null
-              }
-            />
+        {!isClubStaff && (
+          <div className="mt-4 rounded-2xl border border-border bg-surface p-6">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
+              Personal wallet{" "}
+              <span className="normal-case text-zinc-600">(optional)</span>
+            </h2>
+            <div className="mt-3">
+              <WalletProvisioner
+                wallet={
+                  fullFan?.wallet
+                    ? {
+                        address: fullFan.wallet.address,
+                        chain: fullFan.wallet.chain,
+                      }
+                    : null
+                }
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="mt-8">
+        {!isClubStaff && <div className="mt-8">
           <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
             Order History
           </h2>
@@ -184,7 +197,7 @@ export default async function ProfilePage() {
               })}
             </div>
           )}
-        </div>
+        </div>}
       </section>
     </main>
   );

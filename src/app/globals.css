@@ -8,6 +8,18 @@
   --border: #2a2a31;
   --accent-from: #10b981;
   --accent-to: #06b6d4;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --background: #f5f7fa;
+  --foreground: #17181c;
+  --surface: #ffffff;
+  --surface-elev: #eef1f5;
+  --border: #d7dce3;
+  --accent-from: #059669;
+  --accent-to: #0891b2;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -42,4 +54,63 @@ body {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+:root[data-theme="light"] .text-zinc-100,
+:root[data-theme="light"] .text-zinc-200,
+:root[data-theme="light"] .text-zinc-300 {
+  color: #27272a;
+}
+
+:root[data-theme="light"] .text-zinc-400 {
+  color: #52525b;
+}
+
+:root[data-theme="light"] .text-zinc-500,
+:root[data-theme="light"] .text-zinc-600 {
+  color: #71717a;
+}
+
+:root[data-theme="light"] .bg-zinc-950\/40 {
+  background-color: rgb(244 244 245 / 0.75);
+}
+
+:root[data-theme="light"] .bg-zinc-800 {
+  background-color: #e4e4e7;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --background: #f5f7fa;
+    --foreground: #17181c;
+    --surface: #ffffff;
+    --surface-elev: #eef1f5;
+    --border: #d7dce3;
+    --accent-from: #059669;
+    --accent-to: #0891b2;
+    color-scheme: light;
+  }
+
+  :root[data-theme="system"] .text-zinc-100,
+  :root[data-theme="system"] .text-zinc-200,
+  :root[data-theme="system"] .text-zinc-300 {
+    color: #27272a;
+  }
+
+  :root[data-theme="system"] .text-zinc-400 {
+    color: #52525b;
+  }
+
+  :root[data-theme="system"] .text-zinc-500,
+  :root[data-theme="system"] .text-zinc-600 {
+    color: #71717a;
+  }
+
+  :root[data-theme="system"] .bg-zinc-950\/40 {
+    background-color: rgb(244 244 245 / 0.75);
+  }
+
+  :root[data-theme="system"] .bg-zinc-800 {
+    background-color: #e4e4e7;
+  }
 }

@@ -6,7 +6,7 @@ import { requireFan } from "@/lib/server/auth/requireFan";
 export const dynamic = "force-dynamic";
 
 export default async function ClubWorkspacePage() {
-  await requireFan();
+  const fan = await requireFan();
   const accesses = await getCurrentClubAccesses();
 
   if (accesses.length === 1) {
@@ -20,8 +20,11 @@ export default async function ClubWorkspacePage() {
           Club workspace
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-          Matchday operations
+          Welcome, {fan.displayName ?? fan.email.split("@")[0]}
         </h1>
+        <p className="mt-2 text-sm text-zinc-400">
+          Choose a club workspace to continue to matchday operations.
+        </p>
 
         {accesses.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-border bg-surface p-6">

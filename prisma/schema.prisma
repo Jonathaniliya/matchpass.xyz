@@ -229,6 +229,8 @@ model Fan {
   supabaseUserId    String?             @unique
   email             String              @unique
   displayName       String?
+  avatarUrl         String?
+  themePreference   String              @default("system")
   favoriteClubId    String?
   createdAt         DateTime            @default(now())
   favoriteClub      Club?               @relation("FavoriteClub", fields: [favoriteClubId], references: [id], onDelete: SetNull)

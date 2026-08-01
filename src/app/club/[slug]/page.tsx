@@ -2,6 +2,7 @@ import Link from "next/link";
 import { canManageClub, requireClubPageAccess } from "@/lib/server/auth/clubAccess";
 import { prisma } from "@/lib/server/db/prisma";
 import { ClubDashboardClient, type DashboardEvent } from "./ClubDashboardClient";
+import { requireFan } from "@/lib/server/auth/requireFan";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function ClubDashboardPage({
 }) {
   const { slug } = await params;
   const access = await requireClubPageAccess(slug);
+  const fan = await requireFan();
 
   const [events, soldTickets, completedOrders] = await Promise.all([
     prisma.event.findMany({
@@ -92,7 +94,10 @@ export default async function ClubDashboardPage({
             <Link href="/club" className="text-xs text-zinc-500 hover:text-zinc-300">
               Club workspace
             </Link>
-            <p className="mt-3 text-xs uppercase tracking-[0.2em] text-cyan-400">
+            <p className="mt-3 text-sm text-zinc-400">
+              Welcome back, <span className="font-medium text-foreground">{fan.displayName ?? fan.email.split("@")[0]}</span>
+            </p>
+            <p className="mt-2 text-xs uppercase tracking-[0.2em] text-cyan-400">
               {access.club.league?.name ?? "Club operations"}
             </p>
             <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">

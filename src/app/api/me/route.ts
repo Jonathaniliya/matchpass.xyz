@@ -14,12 +14,24 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const data: { displayName?: string; favoriteClubId?: string | null; preferredCurrency?: string } = {};
+  const data: {
+    displayName?: string | null;
+    avatarUrl?: string | null;
+    themePreference?: "system" | "light" | "dark";
+    favoriteClubId?: string | null;
+    preferredCurrency?: string;
+  } = {};
   if (parsed.data.displayName !== undefined) {
     data.displayName = parsed.data.displayName;
   }
   if (parsed.data.preferredCurrency !== undefined) {
     data.preferredCurrency = parsed.data.preferredCurrency;
+  }
+  if (parsed.data.avatarUrl !== undefined) {
+    data.avatarUrl = parsed.data.avatarUrl;
+  }
+  if (parsed.data.themePreference !== undefined) {
+    data.themePreference = parsed.data.themePreference;
   }
   if (parsed.data.favoriteClubId !== undefined) {
     if (parsed.data.favoriteClubId === null) {
@@ -40,11 +52,23 @@ export async function PATCH(req: Request) {
     where: { id: fan.id },
     data,
   });
-  return NextResponse.json({
+  const response = NextResponse.json({
     id: updated.id,
     email: updated.email,
     displayName: updated.displayName,
+    avatarUrl: updated.avatarUrl,
+    themePreference: updated.themePreference,
     favoriteClubId: updated.favoriteClubId,
     preferredCurrency: updated.preferredCurrency,
   });
+  if (parsed.data.themePreference) {
+    response.cookies.set("matchpass-theme", parsed.data.themePreference, {
+      httpOnly: false,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
+  return response;
 }

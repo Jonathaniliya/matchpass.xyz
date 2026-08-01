@@ -103,8 +103,21 @@ export function ClubDashboardClient({
 }
 
 function TreasuryBalanceCard({ clubSlug }: { clubSlug: string }) {
-  const [amount, setAmount] = useState<string | null>(null);
+  const [treasury, setTreasury] = useState<{
+    amount: string;
+    address: string | null;
+    chain: string | null;
+    recentSweeps: Array<{
+      id: string;
+      status: string;
+      amountUsdc: string;
+      sweptAmountUsdc: string | null;
+      createdAt: string;
+      completedAt: string | null;
+    }>;
+  } | null>(null);
   const [error, setError] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -112,7 +125,14 @@ function TreasuryBalanceCard({ clubSlug }: { clubSlug: string }) {
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body.error ?? "treasury_unavailable");
-        if (alive) setAmount(body.amount ?? "0");
+        if (alive) {
+          setTreasury({
+            amount: body.amount ?? "0",
+            address: body.address ?? null,
+            chain: body.chain ?? null,
+            recentSweeps: body.recentSweeps ?? [],
+          });
+        }
       })
       .catch(() => {
         if (alive) setError(true);
@@ -130,16 +150,69 @@ function TreasuryBalanceCard({ clubSlug }: { clubSlug: string }) {
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-2xl text-zinc-100">
-            {error ? "Unavailable" : amount === null ? "Loading…" : `${Number(amount).toFixed(2)} USDC`}
+            {error
+              ? "Unavailable"
+              : treasury === null
+                ? "Loading…"
+                : `${Number(treasury.amount).toFixed(2)} USDC`}
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Settled ticket funds are swept here automatically. This is not a personal admin wallet.
+            Circle starts the sweep immediately after an inbound ticket payment
+            is confirmed and tickets are issued.
           </p>
         </div>
         <span className="rounded-full border border-emerald-700/60 px-3 py-1 text-xs text-emerald-200">
           Developer-controlled
         </span>
       </div>
+      {treasury?.address && (
+        <div className="mt-4 border-t border-emerald-900/40 pt-4">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+            Treasury address · {treasury.chain?.replace("-TESTNET", " Testnet")}
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-border bg-surface-elev px-3 py-2 font-mono text-xs text-zinc-300">
+              {treasury.address}
+            </code>
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(treasury.address!);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1_500);
+              }}
+              className="rounded-lg border border-border bg-surface-elev px-3 py-2 text-xs text-zinc-300"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+        </div>
+      )}
+      {treasury && treasury.recentSweeps.length > 0 && (
+        <div className="mt-4 border-t border-emerald-900/40 pt-4">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+            Latest settlement
+          </p>
+          <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+            <span className="font-mono text-zinc-300">
+              {Number(
+                treasury.recentSweeps[0].sweptAmountUsdc ??
+                  treasury.recentSweeps[0].amountUsdc,
+              ).toFixed(2)}{" "}
+              USDC
+            </span>
+            <span className="rounded-full border border-border px-2 py-1 uppercase tracking-wide text-zinc-400">
+              {treasury.recentSweeps[0].status}
+            </span>
+          </div>
+        </div>
+      )}
+      <p className="mt-4 rounded-xl border border-border bg-surface/70 p-3 text-xs leading-5 text-zinc-500">
+        Club withdrawals are not exposed yet. The safe production flow is an
+        owner-approved, allow-listed payout address with a server-side Circle
+        transfer and a complete audit trail—not direct access to the developer
+        wallet or entity secret.
+      </p>
     </section>
   );
 }

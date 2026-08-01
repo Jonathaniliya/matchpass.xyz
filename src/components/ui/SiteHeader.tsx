@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { getCurrentFan } from "@/lib/server/auth/requireFan";
 import { LogoutButton } from "@/components/ui/LogoutButton";
 import { HeaderAccount } from "@/components/ui/HeaderAccount";
 import { prisma } from "@/lib/server/db/prisma";
 import { getCurrentClubAccesses } from "@/lib/server/auth/clubAccess";
+import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
+import type { Fan } from "@prisma/client";
 
-export async function SiteHeader() {
-  const fan = await getCurrentFan();
+export async function SiteHeader({ fan }: { fan: Fan | null }) {
   let hasClubAccess = false;
   if (fan) {
     try {
@@ -55,16 +55,33 @@ export async function SiteHeader() {
           {fan ? (
             <>
               {hasClubAccess ? (
-                <Link
-                  href="/club"
-                  className="rounded-full border border-cyan-900/70 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-950/40"
-                >
-                  Club workspace
-                </Link>
+                <>
+                  <Link
+                    href="/club"
+                    className="rounded-full border border-cyan-900/70 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-950/40"
+                  >
+                    Club workspace
+                  </Link>
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3 text-xs text-zinc-300 hover:bg-surface-elev"
+                  >
+                    <ProfileAvatar
+                      avatarUrl={fan.avatarUrl}
+                      displayName={fan.displayName}
+                      email={fan.email}
+                      size="sm"
+                    />
+                    <span className="hidden max-w-28 truncate sm:inline">
+                      {fan.displayName ?? "Profile"}
+                    </span>
+                  </Link>
+                </>
               ) : (
                 <HeaderAccount
                   fan={{
                     displayName: fan.displayName,
+                    avatarUrl: fan.avatarUrl,
                     email: fan.email,
                     preferredCurrency: (fan as { preferredCurrency?: string }).preferredCurrency ?? "USDC",
                   }}

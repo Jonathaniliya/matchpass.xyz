@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
 
 type Balance = { symbol: string; amount: string };
 
 type Props = {
   fan: {
     displayName: string | null;
+    avatarUrl: string | null;
     email: string;
     preferredCurrency: string;
   };
@@ -113,13 +115,20 @@ export function HeaderAccount({ fan }: Props) {
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-76 rounded-2xl border border-border bg-surface p-5 shadow-2xl">
           {/* Email */}
-          <div className="mb-4">
-            <p className="mb-0.5 text-[10px] uppercase tracking-widest text-zinc-500">
-              Account
-            </p>
-            <p className="break-all text-sm font-medium text-zinc-200">
-              {fan.email}
-            </p>
+          <div className="mb-4 flex items-center gap-3">
+            <ProfileAvatar
+              avatarUrl={fan.avatarUrl}
+              displayName={fan.displayName}
+              email={fan.email}
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-zinc-200">
+                {fan.displayName ?? fan.email}
+              </p>
+              {fan.displayName && (
+                <p className="truncate text-xs text-zinc-500">{fan.email}</p>
+              )}
+            </div>
           </div>
 
           {/* Wallet balance */}
