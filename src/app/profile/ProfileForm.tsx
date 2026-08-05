@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
+import { createSupabaseBrowserClient } from "@/lib/client/supabaseBrowser";
 
 export type ClubOption = {
   id: string;
@@ -32,6 +33,8 @@ export function ProfileForm({
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initial.displayName ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl ?? "");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [themePreference, setThemePreference] = useState<ThemePreference>(
     isThemePreference(initial.themePreference)
       ? initial.themePreference
@@ -71,13 +74,38 @@ export function ProfileForm({
     event.preventDefault();
     setStatus("saving");
     setError(null);
+    let uploadedPath: string | null = null;
     try {
+      let nextAvatarUrl = avatarUrl.trim() || null;
+      if (avatarFile) {
+        const supabase = createSupabaseBrowserClient();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+        if (userError || !user) throw new Error("Your session expired. Log in again.");
+
+        const extension = avatarExtension(avatarFile.type);
+        uploadedPath = `${user.id}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("profile-avatars")
+          .upload(uploadedPath, avatarFile, {
+            cacheControl: "3600",
+            contentType: avatarFile.type,
+            upsert: false,
+          });
+        if (uploadError) throw new Error(uploadError.message);
+        nextAvatarUrl = supabase.storage
+          .from("profile-avatars")
+          .getPublicUrl(uploadedPath).data.publicUrl;
+      }
+
       const response = await fetch("/api/me", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           displayName: displayName.trim() || null,
-          avatarUrl: avatarUrl.trim() || null,
+          avatarUrl: nextAvatarUrl,
           themePreference,
           preferredCurrency: "USDC",
           ...(isClubStaff
@@ -86,15 +114,34 @@ export function ProfileForm({
         }),
       });
       if (!response.ok) {
+        if (uploadedPath) {
+          const supabase = createSupabaseBrowserClient();
+          await supabase.storage
+            .from("profile-avatars")
+            .remove([uploadedPath])
+            .catch(() => undefined);
+        }
         const json = await response.json().catch(() => ({}));
         setError(profileError(json.error));
         setStatus("error");
         return;
       }
+      setAvatarUrl(nextAvatarUrl ?? "");
+      setAvatarFile(null);
+      setAvatarPreview(null);
       setStatus("saved");
       router.refresh();
-    } catch {
-      setError("Network error. Try again.");
+    } catch (caught) {
+      if (uploadedPath) {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.storage
+          .from("profile-avatars")
+          .remove([uploadedPath])
+          .catch(() => undefined);
+      }
+      setError(
+        caught instanceof Error ? caught.message : "Upload failed. Try again.",
+      );
       setStatus("error");
     }
   }
@@ -108,7 +155,7 @@ export function ProfileForm({
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="flex items-center gap-4">
         <ProfileAvatar
-          avatarUrl={avatarUrl.trim() || null}
+          avatarUrl={avatarPreview ?? (avatarUrl.trim() || null)}
           displayName={displayName.trim() || null}
           email={email}
           size="lg"
@@ -137,23 +184,64 @@ export function ProfileForm({
         />
       </label>
 
-      <label className="block">
-        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">
-          Avatar or NFT image URL
-        </span>
-        <input
-          type="url"
-          value={avatarUrl}
-          onChange={(event) => setAvatarUrl(event.target.value)}
-          maxLength={2048}
-          placeholder="https://…"
-          className={inputClass}
-        />
-        <span className="mt-2 block text-xs leading-5 text-zinc-500">
-          Use a public HTTP(S) image URL. MatchPass does not request access to
-          the wallet that owns an NFT.
-        </span>
-      </label>
+      <div>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
+          Profile image
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="cursor-pointer rounded-xl border border-border bg-surface-elev px-4 py-2.5 text-sm text-foreground hover:border-cyan-600">
+            Choose from device
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                  setError("Choose an image smaller than 2 MB.");
+                  setStatus("error");
+                  event.target.value = "";
+                  return;
+                }
+                if (!avatarMimeTypes.has(file.type)) {
+                  setError("Choose a JPEG, PNG, WebP, or GIF image.");
+                  setStatus("error");
+                  event.target.value = "";
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                  setAvatarPreview(
+                    typeof reader.result === "string" ? reader.result : null,
+                  );
+                };
+                reader.readAsDataURL(file);
+                setAvatarFile(file);
+                setError(null);
+                setStatus("idle");
+              }}
+            />
+          </label>
+          {(avatarUrl || avatarFile) && (
+            <button
+              type="button"
+              onClick={() => {
+                setAvatarUrl("");
+                setAvatarFile(null);
+                setAvatarPreview(null);
+                setStatus("idle");
+              }}
+              className="rounded-xl border border-border px-4 py-2.5 text-sm text-zinc-400"
+            >
+              Remove image
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-zinc-500">
+          JPEG, PNG, WebP, or GIF. Maximum 2 MB.
+        </p>
+      </div>
 
       <fieldset>
         <legend className="text-xs font-medium uppercase tracking-wide text-zinc-400">
@@ -253,3 +341,22 @@ function profileError(code: unknown) {
 
 const inputClass =
   "w-full rounded-xl border border-border bg-surface-elev px-4 py-3 text-foreground outline-none focus:border-cyan-500";
+
+const avatarMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+function avatarExtension(mimeType: string) {
+  const extensions: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+  };
+  const extension = extensions[mimeType];
+  if (!extension) throw new Error("Unsupported image type.");
+  return extension;
+}

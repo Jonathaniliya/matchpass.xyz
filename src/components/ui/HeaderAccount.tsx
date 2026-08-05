@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
+import { WalletQuickTransfer } from "@/components/wallet/WalletQuickTransfer";
 
 type Balance = { symbol: string; amount: string };
 
@@ -66,17 +67,15 @@ export function HeaderAccount({ fan }: Props) {
 
   return (
     <div ref={dropdownRef} className="relative flex items-center gap-1">
-      {/* Wallet details */}
-      {balanceLabel && (
-        <button
-          type="button"
-          aria-label="Open wallet details"
-          onClick={() => setOpen((value) => !value)}
-          className="hidden rounded-full border border-border p-1.5 text-zinc-400 hover:bg-surface-elev sm:inline-flex"
-          title="Wallet details"
-        >
+      {/* Single wallet/account control — balance when a UCW exists. */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1.5 text-xs font-medium text-zinc-200 hover:bg-surface-elev sm:px-3"
+      >
+        {walletAddress && (
           <svg
-            className="h-3.5 w-3.5"
+            className="h-3.5 w-3.5 shrink-0 text-zinc-400"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -88,16 +87,10 @@ export function HeaderAccount({ fan }: Props) {
               d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
             />
           </svg>
-        </button>
-      )}
-
-      {/* Main button — opens dropdown */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="hidden items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-zinc-200 hover:bg-surface-elev sm:inline-flex"
-      >
-        <span className="max-w-[140px] truncate">{displayLabel}</span>
+        )}
+        <span className="max-w-[105px] truncate sm:max-w-[140px]">
+          {displayLabel}
+        </span>
         <svg
           className={`h-3 w-3 shrink-0 text-zinc-500 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
           viewBox="0 0 20 20"
@@ -113,7 +106,7 @@ export function HeaderAccount({ fan }: Props) {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-76 rounded-2xl border border-border bg-surface p-5 shadow-2xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] max-w-96 rounded-2xl border border-border bg-surface p-5 shadow-2xl sm:w-96">
           {/* Email */}
           <div className="mb-4 flex items-center gap-3">
             <ProfileAvatar
@@ -146,12 +139,12 @@ export function HeaderAccount({ fan }: Props) {
             </div>
           )}
 
-          {/* Deposit address */}
+          {/* UCW deposit address */}
           {walletAddress && (
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[10px] uppercase tracking-widest text-zinc-500">
-                  Deposit address
+                  MatchPass wallet deposit address
                 </p>
                 {walletChain && (
                   <span className="text-[10px] text-zinc-600">
@@ -178,7 +171,29 @@ export function HeaderAccount({ fan }: Props) {
             </div>
           )}
 
+          {walletAddress && <WalletQuickTransfer />}
+
           <div className="border-t border-border pt-3">
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-zinc-300 transition hover:bg-surface-elev"
+            >
+              <svg
+                className="h-4 w-4 text-zinc-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 5a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm9 0a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1V5zM4 14a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1v-5zm9 0a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1v-5z"
+                />
+              </svg>
+              Fan dashboard
+            </Link>
             <Link
               href="/profile"
               onClick={() => setOpen(false)}

@@ -72,6 +72,9 @@ export async function dispatchCircleWebhook(
 
   if (envelope.notificationType === "transactions.outbound") {
     const outbound = envelope.notification as InboundNotification | undefined;
+    const state = (outbound?.state ?? "PENDING").toUpperCase();
+    const settledStates = new Set(["COMPLETE", "COMPLETED", "CONFIRMED"]);
+    const failedStates = new Set(["FAILED", "DENIED", "CANCELLED", "STUCK"]);
     const sweepLookup = [
       ...(outbound?.refId ? [{ id: outbound.refId }] : []),
       ...(outbound?.id ? [{ providerTransactionId: outbound.id }] : []),
@@ -80,22 +83,45 @@ export async function dispatchCircleWebhook(
       ? await prisma.treasurySweep.findFirst({ where: { OR: sweepLookup } })
       : null;
     if (sweep) {
-      const settledStates = new Set(["COMPLETE", "COMPLETED", "CONFIRMED"]);
-      const failedStates = new Set(["FAILED", "DENIED", "CANCELLED", "STUCK"]);
       await prisma.treasurySweep.update({
         where: { id: sweep.id },
-        data: settledStates.has(outbound?.state ?? "")
+        data: settledStates.has(state)
           ? { status: "complete", completedAt: new Date() }
-          : failedStates.has(outbound?.state ?? "")
-            ? { status: "failed", failureReason: `circle:${outbound?.state}` }
+          : failedStates.has(state)
+            ? { status: "failed", failureReason: `circle:${state}` }
             : { status: "submitted" },
+      });
+    }
+    const fanTransfer = outbound?.refId
+      ? await prisma.fanWalletTransfer.findUnique({
+          where: { id: outbound.refId },
+          select: { id: true },
+        })
+      : null;
+    if (fanTransfer) {
+      await prisma.fanWalletTransfer.update({
+        where: { id: fanTransfer.id },
+        data: {
+          challengeStatus: settledStates.has(state)
+            ? "complete"
+            : state.toLowerCase(),
+          failureReason: failedStates.has(state) ? `circle:${state}` : null,
+          challengeUpdatedAt: new Date(),
+        },
       });
     }
     await prisma.paymentEvent.update({
       where: { id: paymentEvent.id },
       data: { status: "processed", processedAt: new Date() },
     });
-    return { kind: "ignored", reason: sweep ? "treasury_sweep_updated" : "outbound_unmatched" };
+    return {
+      kind: "ignored",
+      reason: sweep
+        ? "treasury_sweep_updated"
+        : fanTransfer
+          ? "fan_wallet_transfer_updated"
+          : "outbound_unmatched",
+    };
   }
 
   if (envelope.notificationType !== "transactions.inbound") {
